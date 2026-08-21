@@ -1,0 +1,10 @@
+{
+  "name": "Fliq",
+  "short_name": "Fliq",
+  "description": "Watch. Create. Share.",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#050509",
+  "theme_color": "#050509",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

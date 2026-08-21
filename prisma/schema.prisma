@@ -1,0 +1,496 @@
+// Fliq — relational schema
+// Dev uses SQLite (file-based) via DATABASE_URL; swap provider to postgresql
+// for production by changing `provider` + DATABASE_URL, schema is portable.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Users & profiles
+// ---------------------------------------------------------------------------
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  username          String   @unique
+  passwordHash      String
+  displayName       String
+  bio               String   @default("")
+  avatarUrl         String?
+  website           String?
+  location          String?
+  genderVisible     Boolean  @default(false)
+  gender            String?
+  isVerified        Boolean  @default(false)
+  isCreator         Boolean  @default(true)
+  isAdmin           Boolean  @default(false)
+  isPrivate         Boolean  @default(false)
+  status            String   @default("active") // active | suspended | banned | deactivated
+  emailVerified     Boolean  @default(false)
+  emailVerifyToken  String?
+  resetToken        String?
+  resetTokenExpires DateTime?
+  interests         String   @default("[]") // JSON array of category slugs
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  videos            Video[]
+  videoViews        VideoView[]
+  likes             Like[]
+  comments          Comment[]
+  commentLikes      CommentLike[]
+  shares            Share[]
+  saves             Save[]
+  reposts           Repost[]
+  following         Follow[]      @relation("follower")
+  followers         Follow[]      @relation("following")
+  sentMessages      Message[]     @relation("sender")
+  conversations      ConversationParticipant[]
+  notificationsRecv Notification[] @relation("recipient")
+  notificationsActor Notification[] @relation("actor")
+  stories           Story[]
+  storyViews        StoryView[]
+  reportsFiled      Report[]      @relation("reporter")
+  reportsAgainst    Report[]      @relation("reportedUser")
+  blockedBy         BlockedUser[] @relation("blocker")
+  blocking          BlockedUser[] @relation("blocked")
+  settings          UserSettings?
+  analytics         CreatorAnalytics?
+  sounds            Sound[]
+  liveStreams       LiveStream[]
+  messageReactions  MessageReaction[]
+
+  @@index([username])
+}
+
+model UserSettings {
+  id                  String  @id @default(cuid())
+  userId              String  @unique
+  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  privateAccount      Boolean @default(false)
+  allowComments       Boolean @default(true)
+  allowDuet           Boolean @default(true)
+  allowDownloads      Boolean @default(true)
+  allowMessagesFrom   String  @default("everyone") // everyone | followers | none
+  showActivityStatus  Boolean @default(true)
+  pushLikes           Boolean @default(true)
+  pushComments        Boolean @default(true)
+  pushFollowers       Boolean @default(true)
+  pushMentions        Boolean @default(true)
+  pushMessages        Boolean @default(true)
+  emailNotifications  Boolean @default(false)
+  language            String  @default("en")
+  reducedMotion       Boolean @default(false)
+  theme               String  @default("dark")
+}
+
+// ---------------------------------------------------------------------------
+// Social graph
+// ---------------------------------------------------------------------------
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+  @@index([followerId])
+}
+
+model BlockedUser {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+}
+
+// ---------------------------------------------------------------------------
+// Videos
+// ---------------------------------------------------------------------------
+
+model Video {
+  id             String   @id @default(cuid())
+  userId         String
+  caption        String   @default("")
+  videoUrl       String
+  thumbnailUrl   String
+  duration       Int      @default(15) // seconds
+  aspectRatio    String   @default("9:16")
+  privacy        String   @default("everyone") // everyone | followers | onlyMe
+  allowComments  Boolean  @default(true)
+  allowDuet      Boolean  @default(true)
+  allowDownload  Boolean  @default(true)
+  location       String?
+  soundId        String?
+  status         String   @default("published") // published | processing | removed | draft
+  isRepostOfId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sound        Sound?          @relation(fields: [soundId], references: [id])
+  hashtags     VideoHashtag[]
+  views        VideoView[]
+  likes        Like[]
+  comments     Comment[]
+  shares       Share[]
+  saves        Save[]
+  reposts      Repost[]
+  notifications Notification[]
+  analytics    VideoAnalytics?
+  reports      Report[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model VideoView {
+  id           String   @id @default(cuid())
+  videoId      String
+  userId       String?
+  watchSeconds Float    @default(0)
+  completed    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([videoId])
+  @@index([userId])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([videoId])
+}
+
+model Comment {
+  id           String   @id @default(cuid())
+  videoId      String
+  userId       String
+  parentId     String?
+  text         String
+  isPinned     Boolean  @default(false)
+  isDeleted    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  video    Video         @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   Comment?      @relation("replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies  Comment[]     @relation("replies")
+  likes    CommentLike[]
+  reports  Report[]
+
+  @@index([videoId])
+  @@index([parentId])
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+}
+
+model Share {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  target    String   @default("link") // link | fliq_user | external
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+}
+
+model Save {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+  @@index([videoId])
+}
+
+model Repost {
+  id        String   @id @default(cuid())
+  userId    String
+  videoId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId])
+}
+
+// ---------------------------------------------------------------------------
+// Hashtags & sounds
+// ---------------------------------------------------------------------------
+
+model Hashtag {
+  id        String   @id @default(cuid())
+  tag       String   @unique
+  viewCount Int      @default(0)
+  createdAt DateTime @default(now())
+
+  videos VideoHashtag[]
+}
+
+model VideoHashtag {
+  id        String @id @default(cuid())
+  videoId   String
+  hashtagId String
+
+  video   Video   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@unique([videoId, hashtagId])
+  @@index([hashtagId])
+}
+
+model Sound {
+  id         String   @id @default(cuid())
+  title      String
+  artist     String
+  coverUrl   String
+  audioUrl   String
+  duration   Int      @default(30)
+  isOriginal Boolean  @default(false)
+  ownerId    String?
+  createdAt  DateTime @default(now())
+
+  owner  User?          @relation(fields: [ownerId], references: [id])
+  videos Video[]
+
+  @@index([title])
+}
+
+// ---------------------------------------------------------------------------
+// Messaging
+// ---------------------------------------------------------------------------
+
+model Conversation {
+  id        String   @id @default(cuid())
+  isGroup   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     Message[]
+}
+
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime @default(now())
+  isRequest      Boolean  @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  type           String   @default("text") // text | image | video | audio | gif
+  text           String?
+  mediaUrl       String?
+  replyToId      String?
+  isDeleted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User              @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo      Message?          @relation("replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies      Message[]         @relation("replies")
+  reactions    MessageReaction[]
+  reports      Report[]
+
+  @@index([conversationId])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id          String   @id @default(cuid())
+  recipientId String
+  actorId     String?
+  type        String   // like | comment | follow | mention | share | system
+  videoId     String?
+  commentText String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  recipient User   @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     User?  @relation("actor", fields: [actorId], references: [id], onDelete: Cascade)
+  video     Video? @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId])
+}
+
+// ---------------------------------------------------------------------------
+// Stories
+// ---------------------------------------------------------------------------
+
+model Story {
+  id        String   @id @default(cuid())
+  userId    String
+  mediaUrl  String
+  mediaType String   @default("video") // video | image
+  text      String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views StoryView[]
+
+  @@index([userId])
+}
+
+model StoryView {
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// Live
+// ---------------------------------------------------------------------------
+
+model LiveStream {
+  id           String    @id @default(cuid())
+  userId       String
+  title        String
+  category     String
+  status       String    @default("live") // live | ended
+  viewerCount  Int       @default(0)
+  commentsOn   Boolean   @default(true)
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Reports & moderation
+// ---------------------------------------------------------------------------
+
+model Report {
+  id             String   @id @default(cuid())
+  reporterId     String
+  reportedUserId String?
+  videoId        String?
+  commentId      String?
+  messageId      String?
+  targetType     String   // video | user | comment | message
+  reason         String   // spam | harassment | violence | hate | sexual | dangerous | copyright | scam | other
+  details        String?
+  status         String   @default("pending") // pending | reviewing | resolved
+  createdAt      DateTime @default(now())
+  resolvedAt     DateTime?
+
+  reporter     User     @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User?    @relation("reportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  video        Video?   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  comment      Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  message      Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Analytics
+// ---------------------------------------------------------------------------
+
+model CreatorAnalytics {
+  id             String @id @default(cuid())
+  userId         String @unique
+  totalViews     Int    @default(0)
+  totalWatchTime Int    @default(0) // seconds
+  totalLikes     Int    @default(0)
+  totalComments  Int    @default(0)
+  totalShares    Int    @default(0)
+  totalSaves     Int    @default(0)
+  // Historical baseline added on top of real Follow rows so seeded/demo
+  // creators can show realistic audience sizes without materializing
+  // millions of rows; real follows increment on top of this number.
+  followerBoost  Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VideoAnalytics {
+  id              String @id @default(cuid())
+  videoId         String @unique
+  views           Int    @default(0)
+  avgWatchSeconds Float  @default(0)
+  completionRate  Float  @default(0)
+  likes           Int    @default(0)
+  comments        Int    @default(0)
+  shares          Int    @default(0)
+  saves           Int    @default(0)
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+}
