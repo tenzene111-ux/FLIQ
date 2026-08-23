@@ -3,13 +3,18 @@
 Fliq is a full-stack short-video social platform: personalized feeds, a
 browser-based camera + video editor, messaging, live, stories, creator
 analytics, and an admin/moderation console — built with Next.js (App
-Router), TypeScript, Prisma, and SQLite.
+Router), TypeScript, Prisma, and Postgres.
 
-## Quick start
+## Quick start (local development)
+
+You need a Postgres database. Easiest options: install Postgres locally, or
+grab a free connection string from [Neon](https://neon.tech) or
+[Supabase](https://supabase.com) — either works, no local install needed.
 
 ```bash
+cp .env.example .env        # then fill in DATABASE_URL and JWT_SECRET
 npm install
-npx prisma migrate dev      # creates prisma/dev.db and applies the schema
+npx prisma migrate dev      # applies the schema to your database
 npm run gen:seed-videos     # generates local placeholder clips (public/seed-videos)
 npm run db:seed             # populates demo users, videos, follows, messages...
 npm run dev
@@ -28,9 +33,8 @@ onboarding flow.)
 - **Next.js 16** (App Router, Route Handlers as the API layer)
 - **TypeScript**, **Tailwind CSS v4** for the design system (see
   `src/app/globals.css` for the Fliq gradient/color tokens)
-- **Prisma + SQLite** for the relational database (`prisma/schema.prisma`);
-  swap the `datasource` provider + `DATABASE_URL` for Postgres/MySQL in
-  production — the schema and queries don't depend on SQLite specifics
+- **Prisma + Postgres** for the relational database (`prisma/schema.prisma`)
+  — same engine in dev and production, one `DATABASE_URL` env var
 - **Zustand** for lightweight client state (auth/session, toasts, feed UI,
   the in-progress Create draft)
 - **Recharts** for the analytics dashboards
@@ -61,8 +65,9 @@ scoped down, and are called out in the UI copy itself rather than faked:
   (`src/components/auth/OAuthButtons.tsx`) that explains real credentials
   are needed — they don't fake a signed-in session.
 - **Object storage**: uploads go through `src/lib/storage.ts`, which writes
-  to `/public/uploads` locally. Set `STORAGE_PROVIDER=s3` and fill in the
-  `S3_*` env vars to point it at real object storage/CDN in production.
+  to `/public/uploads` locally. Set `STORAGE_PROVIDER=vercel-blob` to use
+  Vercel Blob storage in production (see Deploy section below), or
+  `STORAGE_PROVIDER=s3` for a self-hosted S3-compatible bucket.
 - **Monetization / Payouts / Promote Video** are honest "coming soon"
   screens rather than fabricated dashboards.
 - Seed/demo video content is generated locally at
@@ -87,6 +92,32 @@ src/store/                 Zustand client stores
 ## Scripts
 
 - `npm run dev` / `npm run build` / `npm run start`
+- `npm run db:migrate` — create/apply a migration after changing `schema.prisma`
 - `npm run db:seed` — reseed demo data (idempotent, clears and recreates)
-- `npm run db:reset` — drop and recreate the SQLite DB from migrations, then seed
+- `npm run db:reset` — drop and recreate the DB from migrations, then seed
 - `npm run gen:seed-videos` — regenerate the local placeholder video clips
+
+## Deploy to production (Vercel)
+
+1. **Push this repo to GitHub** (already done if you're reading this from
+   the repo) and go to [vercel.com/new](https://vercel.com/new) → import it.
+2. **Add a Postgres database**: in the Vercel dashboard for the new
+   project, go to *Storage → Create Database → Postgres* (powered by Neon).
+   This automatically sets `DATABASE_URL` for you — no separate signup.
+3. **Add Blob storage** for uploaded avatars/videos: *Storage → Create →
+   Blob*. This automatically sets `BLOB_READ_WRITE_TOKEN`.
+4. **Set environment variables** (Project Settings → Environment Variables):
+   - `JWT_SECRET` — any long random string (`openssl rand -hex 32`)
+   - `STORAGE_PROVIDER` — `vercel-blob`
+   - `NEXT_PUBLIC_APP_NAME` — `Fliq`
+5. **Deploy.** Vercel runs `npm install` (which triggers `prisma generate`
+   via the `postinstall` script), then `npm run build`.
+6. **Apply the schema to the new database once**, from your machine, using
+   the `DATABASE_URL` Vercel generated (copy it from the dashboard):
+   ```bash
+   DATABASE_URL="<paste the Vercel Postgres URL>" npx prisma migrate deploy
+   DATABASE_URL="<paste the Vercel Postgres URL>" npm run db:seed   # optional, for demo data
+   ```
+7. Every push to `main` auto-deploys. Push to any other branch and Vercel
+   gives you a preview URL for that branch instead — the same "preview
+   deployment" workflow real teams use to check work before it ships.

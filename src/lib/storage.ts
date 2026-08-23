@@ -4,9 +4,15 @@ import { nanoid } from "nanoid";
 
 /**
  * Storage abstraction so the rest of the app never talks to a specific
- * provider directly. Swap STORAGE_PROVIDER=s3 (+ S3_* env vars) in
- * production to serve uploads from an S3-compatible bucket behind a CDN
- * instead of the local filesystem used for development/demo mode.
+ * provider directly.
+ *
+ * - "local" (default): writes to /public/uploads. Only works where the
+ *   filesystem is writable and persistent — fine for local dev, NOT for
+ *   Vercel/serverless (read-only, ephemeral filesystem at runtime).
+ * - "vercel-blob": set STORAGE_PROVIDER=vercel-blob and add the Vercel Blob
+ *   storage integration to your project (Vercel dashboard → Storage → add
+ *   Blob) — it injects BLOB_READ_WRITE_TOKEN automatically, no manual setup.
+ * - "s3": seam kept for a self-hosted S3-compatible bucket.
  */
 export interface StorageProvider {
   upload(buffer: Buffer, opts: { folder: string; ext: string; contentType: string }): Promise<{ url: string; key: string }>;
@@ -20,6 +26,15 @@ class LocalStorageProvider implements StorageProvider {
     const key = `${opts.folder}/${filename}`;
     await writeFile(path.join(dir, filename), buffer);
     return { url: `/uploads/${key}`, key };
+  }
+}
+
+class VercelBlobStorageProvider implements StorageProvider {
+  async upload(buffer: Buffer, opts: { folder: string; ext: string; contentType: string }) {
+    const { put } = await import("@vercel/blob");
+    const key = `${opts.folder}/${nanoid(12)}.${opts.ext}`;
+    const blob = await put(key, buffer, { access: "public", contentType: opts.contentType, addRandomSuffix: false });
+    return { url: blob.url, key };
   }
 }
 
@@ -37,6 +52,7 @@ class S3StorageProvider implements StorageProvider {
 
 export function getStorage(): StorageProvider {
   const provider = process.env.STORAGE_PROVIDER || "local";
+  if (provider === "vercel-blob") return new VercelBlobStorageProvider();
   if (provider === "s3") return new S3StorageProvider();
   return new LocalStorageProvider();
 }

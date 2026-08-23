@@ -21,7 +21,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       ? prisma.user.findMany({
           where: {
             status: "active",
-            OR: [{ username: { contains: q } }, { displayName: { contains: q } }],
+            OR: [{ username: { contains: q, mode: "insensitive" } }, { displayName: { contains: q, mode: "insensitive" } }],
           },
           select: { id: true, username: true, displayName: true, avatarUrl: true, isVerified: true, bio: true, analytics: { select: { followerBoost: true } } },
           take: isTop ? 4 : 25,
@@ -29,7 +29,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       : Promise.resolve([]),
     type === "videos" || isTop
       ? prisma.video.findMany({
-          where: { status: "published", caption: { contains: q } },
+          where: { status: "published", caption: { contains: q, mode: "insensitive" } },
           include: videoInclude(viewer?.id),
           take: isTop ? 6 : 30,
           orderBy: { createdAt: "desc" },
@@ -37,7 +37,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       : Promise.resolve([]),
     type === "hashtags" || isTop
       ? prisma.hashtag.findMany({
-          where: { tag: { contains: cleanTag } },
+          where: { tag: { contains: cleanTag, mode: "insensitive" } },
           take: isTop ? 4 : 25,
           orderBy: { viewCount: "desc" },
           include: { _count: { select: { videos: true } } },
@@ -45,7 +45,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       : Promise.resolve([]),
     type === "sounds" || isTop
       ? prisma.sound.findMany({
-          where: { OR: [{ title: { contains: q } }, { artist: { contains: q } }] },
+          where: { OR: [{ title: { contains: q, mode: "insensitive" } }, { artist: { contains: q, mode: "insensitive" } }] },
           take: isTop ? 4 : 25,
           include: { _count: { select: { videos: true } } },
         })

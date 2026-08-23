@@ -8,7 +8,7 @@ export const GET = withAdmin(async (req: NextRequest) => {
 
   const videos = await prisma.video.findMany({
     where: {
-      ...(q ? { OR: [{ caption: { contains: q } }, { user: { username: { contains: q } } }] } : {}),
+      ...(q ? { OR: [{ caption: { contains: q, mode: "insensitive" } }, { user: { username: { contains: q, mode: "insensitive" } } }] } : {}),
       ...(status ? { status } : {}),
     },
     include: {

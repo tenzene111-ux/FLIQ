@@ -9,7 +9,7 @@ export const GET = withAdmin(async (req: NextRequest) => {
 
   const users = await prisma.user.findMany({
     where: {
-      ...(q ? { OR: [{ username: { contains: q } }, { email: { contains: q } }, { displayName: { contains: q } }] } : {}),
+      ...(q ? { OR: [{ username: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }, { displayName: { contains: q, mode: "insensitive" } }] } : {}),
       ...(status ? { status } : {}),
     },
     select: {

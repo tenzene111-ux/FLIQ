@@ -1,13 +1,13 @@
 // Fliq — relational schema
-// Dev uses SQLite (file-based) via DATABASE_URL; swap provider to postgresql
-// for production by changing `provider` + DATABASE_URL, schema is portable.
+// Postgres in both dev and production (set DATABASE_URL accordingly) so
+// there's one database engine to learn instead of two.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
