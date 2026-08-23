@@ -111,13 +111,18 @@ src/store/                 Zustand client stores
    - `STORAGE_PROVIDER` — `vercel-blob`
    - `NEXT_PUBLIC_APP_NAME` — `Fliq`
 5. **Deploy.** Vercel runs `npm install` (which triggers `prisma generate`
-   via the `postinstall` script), then `npm run build`.
-6. **Apply the schema to the new database once**, from your machine, using
-   the `DATABASE_URL` Vercel generated (copy it from the dashboard):
-   ```bash
-   DATABASE_URL="<paste the Vercel Postgres URL>" npx prisma migrate deploy
-   DATABASE_URL="<paste the Vercel Postgres URL>" npm run db:seed   # optional, for demo data
+   via the `postinstall` script), then `npm run build`, which runs
+   `prisma migrate deploy` before `next build` — so the database schema is
+   created/updated automatically on every deploy. No manual migration step
+   needed.
+6. **Load demo data once**, after the first successful deploy, by visiting
+   (in your browser, or via `curl`):
    ```
+   https://<your-app>.vercel.app/api/setup/seed?secret=<your JWT_SECRET value>
+   ```
+   This is a protected one-time route (`src/app/api/setup/seed/route.ts`)
+   gated behind your `JWT_SECRET` — it refuses to run again on a database
+   that already has users unless you add `&force=true`.
 7. Every push to `main` auto-deploys. Push to any other branch and Vercel
    gives you a preview URL for that branch instead — the same "preview
    deployment" workflow real teams use to check work before it ships.

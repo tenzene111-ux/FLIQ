@@ -22,7 +22,7 @@ const daysAgo = (n: number, hOffset = 0) => new Date(Date.now() - n * 86400000 -
 
 const PASSWORD = "Password123!";
 
-async function main() {
+export async function seedDatabase() {
   console.log("Seeding Fliq demo data…");
 
   // Clean slate (order respects FK dependencies)
@@ -557,11 +557,15 @@ async function main() {
   console.log(`Demo login → email: demo@fliq.app  password: ${PASSWORD}`);
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+import { fileURLToPath } from "url";
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  seedDatabase()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}
