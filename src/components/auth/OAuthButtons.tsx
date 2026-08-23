@@ -1,19 +1,16 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
-import { toast } from "@/store/toast";
-
-// Real OAuth requires provider credentials (GOOGLE_CLIENT_ID/SECRET,
-// APPLE_CLIENT_ID/KEY) configured server-side per-environment. The buttons
-// are wired to a clean seam here rather than faked as if they worked.
-function handleOAuth(provider: "google" | "apple") {
-  toast("info", `${provider === "google" ? "Google" : "Apple"} sign-in requires OAuth credentials to be configured for this environment.`);
-}
 
 export function OAuthButtons() {
   return (
     <div className="grid grid-cols-2 gap-3">
-      <Button variant="secondary" onClick={() => handleOAuth("google")} type="button">
+      <Button
+        variant="secondary"
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate full navigation into an OAuth redirect, not a Next.js page
+        onClick={() => (window.location.href = "/api/auth/google")}
+        type="button"
+      >
         <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
           <path
             fill="currentColor"
@@ -31,7 +28,12 @@ export function OAuthButtons() {
         </svg>
         Google
       </Button>
-      <Button variant="secondary" onClick={() => handleOAuth("apple")} type="button">
+      <Button
+        variant="secondary"
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- deliberate full navigation into an OAuth redirect, not a Next.js page
+        onClick={() => (window.location.href = "/api/auth/apple")}
+        type="button"
+      >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M16.365 1.43c0 1.14-.468 2.2-1.23 3.02-.83.9-2.19 1.6-3.32 1.51-.14-1.1.42-2.24 1.19-3.03.83-.87 2.28-1.55 3.36-1.5zM20.6 17.13c-.55 1.28-1.22 2.42-2.03 3.44-.94 1.17-2.05 2.6-3.55 2.6-1.31 0-1.7-.85-3.44-.84-1.74.01-2.17.85-3.48.83-1.5-.02-2.55-1.33-3.49-2.5-2.4-2.98-3.14-6.5-1.87-9.42.9-2.07 2.68-3.32 4.6-3.35 1.34-.03 2.47.9 3.44.9.96 0 2.4-1.11 4.04-.95.68.03 2.6.28 3.83 2.09-.1.06-2.28 1.33-2.26 3.97.03 3.15 2.76 4.2 2.79 4.21z" />
         </svg>

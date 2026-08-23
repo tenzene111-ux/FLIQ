@@ -29,6 +29,10 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
   if (user.status === "banned") return jsonError("This account has been banned.", 403);
   if (user.status === "suspended") return jsonError("This account is suspended.", 403);
 
+  if (!user.passwordHash) {
+    return jsonError("This account uses Google or Apple sign-in. Use that instead, or reset your password to add one.", 401);
+  }
+
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) return jsonError("Incorrect email/username or password", 401);
 

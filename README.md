@@ -61,9 +61,11 @@ scoped down, and are called out in the UI copy itself rather than faked:
   (`src/lib/mailer.ts`) and returns the token/link directly in the API
   response in dev mode, since there's no inbox in this environment. Swap in
   a real provider behind the same `sendEmail()` signature for production.
-- **OAuth** (Google/Apple) buttons are wired to a clean seam
-  (`src/components/auth/OAuthButtons.tsx`) that explains real credentials
-  are needed — they don't fake a signed-in session.
+- **OAuth** (Google/Apple) is a real Authorization Code flow
+  (`src/app/api/auth/google`, `src/app/api/auth/apple`) — it only needs
+  provider credentials set as env vars to work (see "Set up Google/Apple
+  sign-in" below); with nothing configured, the buttons show a friendly
+  error instead of faking a signed-in session.
 - **Object storage**: uploads go through `src/lib/storage.ts`, which writes
   to `/public/uploads` locally. Set `STORAGE_PROVIDER=vercel-blob` to use
   Vercel Blob storage in production (see Deploy section below), or
@@ -126,3 +128,49 @@ src/store/                 Zustand client stores
 7. Every push to `main` auto-deploys. Push to any other branch and Vercel
    gives you a preview URL for that branch instead — the same "preview
    deployment" workflow real teams use to check work before it ships.
+
+## Set up Google/Apple sign-in
+
+Both are optional. Without credentials, the buttons show a friendly error
+instead of pretending to work.
+
+**Google (free):**
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) →
+   create a project (or use an existing one).
+2. *APIs & Services → OAuth consent screen* — fill in the basics (app name,
+   your email), External user type is fine for testing.
+3. *APIs & Services → Credentials → Create Credentials → OAuth client ID* →
+   Application type: **Web application**.
+4. Under **Authorized redirect URIs**, add:
+   `https://<your-app>.vercel.app/api/auth/google/callback`
+5. Copy the generated **Client ID** and **Client Secret**.
+6. In Vercel: *Settings → Environment Variables* → add `GOOGLE_CLIENT_ID`
+   and `GOOGLE_CLIENT_SECRET` with those values, for Production.
+7. Redeploy. The Google button on `/login` and `/signup` now works.
+
+**Apple (requires a $99/year Apple Developer Program membership):**
+1. Enroll at [developer.apple.com/programs](https://developer.apple.com/programs)
+   if you haven't already.
+2. *Certificates, IDs & Profiles → Identifiers* — create an **App ID** (if
+   you don't have one) with the "Sign in with Apple" capability enabled.
+3. Create a **Services ID** — this is your `APPLE_CLIENT_ID`. Enable "Sign in
+   with Apple" on it, and configure:
+   - Domain: `<your-app>.vercel.app`
+   - Return URL: `https://<your-app>.vercel.app/api/auth/apple/callback`
+4. *Keys* → create a new key with "Sign in with Apple" enabled, download the
+   `.p8` file (you only get one chance to download it), and note the **Key
+   ID**.
+5. Your **Team ID** is shown in the top-right of the Apple Developer
+   account page.
+6. In Vercel, add these env vars for Production:
+   - `APPLE_CLIENT_ID` — the Services ID from step 3
+   - `APPLE_TEAM_ID` — from step 5
+   - `APPLE_KEY_ID` — from step 4
+   - `APPLE_PRIVATE_KEY` — the full contents of the `.p8` file from step 4
+     (paste it as-is, including the `-----BEGIN PRIVATE KEY-----` lines)
+7. Redeploy. The Apple button now works.
+
+A signed-in user's account is matched by provider ID first, then by email
+(so someone who originally signed up with a password and later clicks
+"Google" with the same email gets linked to their existing account instead
+of a duplicate).

@@ -14,6 +14,9 @@ export const POST = withAuth(async (req, { user }) => {
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid input", 422);
 
   const full = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+  if (!full.passwordHash) {
+    return jsonError("This account signed up with Google or Apple and has no password yet. Use 'Forgot password' to set one.", 400);
+  }
   const valid = await verifyPassword(parsed.data.currentPassword, full.passwordHash);
   if (!valid) return jsonError("Current password is incorrect", 401);
 
