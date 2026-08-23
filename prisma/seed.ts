@@ -22,10 +22,8 @@ const daysAgo = (n: number, hOffset = 0) => new Date(Date.now() - n * 86400000 -
 
 const PASSWORD = "Password123!";
 
-export async function seedDatabase() {
-  console.log("Seeding Fliq demo data…");
-
-  // Clean slate (order respects FK dependencies)
+// Order respects FK dependencies.
+export async function clearDatabase() {
   await prisma.$transaction([
     prisma.report.deleteMany(),
     prisma.messageReaction.deleteMany(),
@@ -54,6 +52,12 @@ export async function seedDatabase() {
     prisma.userSettings.deleteMany(),
     prisma.user.deleteMany(),
   ]);
+}
+
+export async function seedDatabase() {
+  console.log("Seeding Fliq demo data…");
+
+  await clearDatabase();
 
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
 
