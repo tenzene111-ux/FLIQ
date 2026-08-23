@@ -52,10 +52,6 @@ export default async function WelcomePage() {
             </Button>
           </Link>
         </div>
-
-        <p className="mt-6 text-xs text-muted-2">
-          Demo login: <span className="text-muted">demo@fliq.app</span> / <span className="text-muted">Password123!</span>
-        </p>
       </div>
     </div>
   );

@@ -46,11 +46,6 @@ export default function LoginPage() {
     }
   }
 
-  function fillDemo() {
-    setIdentifier("demo@fliq.app");
-    setPassword("Password123!");
-  }
-
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
       <div className="w-full max-w-sm">
@@ -110,14 +105,6 @@ export default function LoginPage() {
             Log in
           </Button>
         </form>
-
-        <button
-          onClick={fillDemo}
-          type="button"
-          className="w-full text-center text-xs text-muted-2 hover:text-white mt-4 transition-colors"
-        >
-          Use demo account (demo@fliq.app)
-        </button>
 
         <div className="flex items-center gap-3 my-6">
           <div className="h-px bg-border flex-1" />
