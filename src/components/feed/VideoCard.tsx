@@ -10,8 +10,6 @@ import {
   Bookmark,
   Repeat2,
   MoreHorizontal,
-  Volume2,
-  VolumeX,
   Play,
   MapPin,
   Music2,
@@ -24,7 +22,6 @@ import { ReportSheet } from "@/components/moderation/ReportSheet";
 import { Sheet } from "@/components/ui/Sheet";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useAuthStore } from "@/store/auth";
-import { useFeedUiStore } from "@/store/feed-ui";
 import { toast } from "@/store/toast";
 import { cn, formatCount } from "@/lib/utils";
 import type { VideoDTO } from "@/types/models";
@@ -33,8 +30,6 @@ import { EyeOff, Flag, Info } from "lucide-react";
 export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: boolean }) {
   const router = useRouter();
   const currentUser = useAuthStore((s) => s.user);
-  const muted = useFeedUiStore((s) => s.muted);
-  const setMuted = useFeedUiStore((s) => s.setMuted);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(true);
@@ -198,7 +193,6 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
           poster={video.thumbnailUrl}
           className="absolute inset-0 w-full h-full object-cover"
           loop
-          muted={muted}
           playsInline
           preload={isActive ? "auto" : "metadata"}
           onTimeUpdate={handleTimeUpdate}
@@ -244,18 +238,6 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
       <div className="absolute top-0 inset-x-0 h-0.5 bg-white/15 z-10">
         <div className="h-full bg-white transition-[width] duration-150" style={{ width: `${progress}%` }} />
       </div>
-
-      {/* mute toggle */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setMuted(!muted);
-        }}
-        aria-label={muted ? "Unmute" : "Mute"}
-        className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/35 backdrop-blur flex items-center justify-center text-white"
-      >
-        {muted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-      </button>
 
       {/* right action rail */}
       <div className="absolute right-2.5 bottom-24 md:bottom-6 z-10 flex flex-col items-center gap-5">
