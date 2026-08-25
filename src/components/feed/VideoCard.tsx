@@ -13,6 +13,7 @@ import {
   Play,
   MapPin,
   Music2,
+  SquareSplitHorizontal,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { CaptionText } from "@/components/feed/CaptionText";
@@ -344,6 +345,16 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
         <p className="text-sm mt-1.5 leading-snug pointer-events-auto line-clamp-3">
           <CaptionText text={video.caption} />
         </p>
+        {video.duetOf && (
+          <Link
+            href={`/video/${video.duetOf.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="pointer-events-auto flex items-center gap-1.5 mt-1 text-xs text-white/90"
+          >
+            <SquareSplitHorizontal size={12} className="shrink-0" />
+            Duet with @{video.duetOf.user.username}
+          </Link>
+        )}
         {video.location && (
           <p className="flex items-center gap-1 text-xs text-white/80 mt-1">
             <MapPin size={12} /> {video.location}
@@ -376,6 +387,16 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
 
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)}>
         <div className="px-2 pb-3">
+          {!isOwn && video.allowDuet && (
+            <MoreItem
+              icon={SquareSplitHorizontal}
+              label="Duet"
+              onClick={() => {
+                setMoreOpen(false);
+                requireAuth(() => router.push(`/create/duet/${video.id}`));
+              }}
+            />
+          )}
           <MoreItem
             icon={EyeOff}
             label={notInterested ? "Won't show less of this" : "Not interested"}

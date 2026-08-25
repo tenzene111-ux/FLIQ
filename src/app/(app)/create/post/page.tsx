@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, MapPin, AtSign, Hash, RefreshCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, MapPin, AtSign, Hash, RefreshCcw, Trash2, Repeat } from "lucide-react";
 import { useCreateDraftStore } from "@/store/create-draft";
 import { useAuthStore } from "@/store/auth";
 import { Textarea, Input } from "@/components/ui/Input";
@@ -111,6 +111,7 @@ function PostPageInner() {
       form.append("status", saveAsDraft ? "draft" : "published");
       if (draft.soundId) form.append("soundId", draft.soundId);
       if (draft.coverDataUrl) form.append("cover", draft.coverDataUrl);
+      if (draft.duetOfId) form.append("duetOfId", draft.duetOfId);
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -209,6 +210,11 @@ function PostPageInner() {
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-3">
+          {draft.duetOfId && draft.duetOfUsername && (
+            <p className="text-xs text-fliq-cyan flex items-center gap-1">
+              <Repeat size={12} /> Duet with @{draft.duetOfUsername}
+            </p>
+          )}
           <Textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value)}

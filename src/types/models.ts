@@ -35,6 +35,7 @@ export interface VideoDTO {
   createdAt: string;
   user: UserBrief;
   sound: SoundDTO | null;
+  duetOf: { id: string; user: UserBrief } | null;
   hashtags: string[];
   counts: {
     views: number;

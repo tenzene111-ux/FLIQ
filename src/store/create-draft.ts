@@ -55,6 +55,8 @@ interface CreateDraftState {
   stickerLayers: StickerLayer[];
   soundId: string | null;
   soundLabel: string | null;
+  duetOfId: string | null;
+  duetOfUsername: string | null;
   finalBlobUrl: string | null;
   finalDuration: number;
   coverDataUrl: string | null;
@@ -75,6 +77,7 @@ interface CreateDraftState {
   updateStickerLayer: (id: string, patch: Partial<StickerLayer>) => void;
   removeStickerLayer: (id: string) => void;
   setSound: (id: string | null, label: string | null) => void;
+  setDuetOf: (id: string | null, username: string | null) => void;
   setFinal: (url: string, duration: number) => void;
   setCover: (dataUrl: string) => void;
   reset: () => void;
@@ -93,6 +96,8 @@ const initialState = {
   stickerLayers: [] as StickerLayer[],
   soundId: null as string | null,
   soundLabel: null as string | null,
+  duetOfId: null as string | null,
+  duetOfUsername: null as string | null,
   finalBlobUrl: null as string | null,
   finalDuration: 0,
   coverDataUrl: null as string | null,
@@ -117,6 +122,7 @@ export const useCreateDraftStore = create<CreateDraftState>((set) => ({
   updateStickerLayer: (id, patch) => set((s) => ({ stickerLayers: s.stickerLayers.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
   removeStickerLayer: (id) => set((s) => ({ stickerLayers: s.stickerLayers.filter((t) => t.id !== id) })),
   setSound: (soundId, soundLabel) => set({ soundId, soundLabel }),
+  setDuetOf: (duetOfId, duetOfUsername) => set({ duetOfId, duetOfUsername }),
   setFinal: (finalBlobUrl, finalDuration) => set({ finalBlobUrl, finalDuration }),
   setCover: (coverDataUrl) => set({ coverDataUrl }),
   reset: () => set({ ...initialState }),

@@ -142,11 +142,14 @@ model Video {
   soundId        String?
   status         String   @default("published") // published | processing | removed | draft
   isRepostOfId   String?
+  duetOfId       String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   sound        Sound?          @relation(fields: [soundId], references: [id])
+  duetOf       Video?          @relation("VideoDuets", fields: [duetOfId], references: [id], onDelete: SetNull)
+  duets        Video[]         @relation("VideoDuets")
   hashtags     VideoHashtag[]
   views        VideoView[]
   likes        Like[]

@@ -25,6 +25,15 @@ export const POST = withAuth(async (req, { user }) => {
   const duration = Math.max(1, Math.round(Number(form.get("duration")) || 15));
   const status = String(form.get("status")) === "draft" ? "draft" : "published";
 
+  let duetOfId: string | undefined;
+  const requestedDuetOfId = form.get("duetOfId") ? String(form.get("duetOfId")) : null;
+  if (requestedDuetOfId) {
+    const original = await prisma.video.findUnique({ where: { id: requestedDuetOfId } });
+    if (original && original.status === "published" && original.allowDuet) {
+      duetOfId = original.id;
+    }
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const ext = file.type.includes("mp4") ? "mp4" : "webm";
   const { url: videoUrl } = await getStorage().upload(buffer, { folder: "videos", ext, contentType: file.type || "video/webm" });
@@ -46,6 +55,7 @@ export const POST = withAuth(async (req, { user }) => {
       allowDownload,
       soundId: soundId || undefined,
       status,
+      duetOfId,
       analytics: { create: {} },
       hashtags: {
         create: await Promise.all(
