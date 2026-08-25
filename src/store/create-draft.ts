@@ -57,6 +57,8 @@ interface CreateDraftState {
   soundLabel: string | null;
   duetOfId: string | null;
   duetOfUsername: string | null;
+  photoFiles: File[];
+  photoPreviewUrls: string[];
   finalBlobUrl: string | null;
   finalDuration: number;
   coverDataUrl: string | null;
@@ -78,6 +80,7 @@ interface CreateDraftState {
   removeStickerLayer: (id: string) => void;
   setSound: (id: string | null, label: string | null) => void;
   setDuetOf: (id: string | null, username: string | null) => void;
+  setPhotos: (files: File[], previewUrls: string[]) => void;
   setFinal: (url: string, duration: number) => void;
   setCover: (dataUrl: string) => void;
   reset: () => void;
@@ -98,6 +101,8 @@ const initialState = {
   soundLabel: null as string | null,
   duetOfId: null as string | null,
   duetOfUsername: null as string | null,
+  photoFiles: [] as File[],
+  photoPreviewUrls: [] as string[],
   finalBlobUrl: null as string | null,
   finalDuration: 0,
   coverDataUrl: null as string | null,
@@ -123,6 +128,7 @@ export const useCreateDraftStore = create<CreateDraftState>((set) => ({
   removeStickerLayer: (id) => set((s) => ({ stickerLayers: s.stickerLayers.filter((t) => t.id !== id) })),
   setSound: (soundId, soundLabel) => set({ soundId, soundLabel }),
   setDuetOf: (duetOfId, duetOfUsername) => set({ duetOfId, duetOfUsername }),
+  setPhotos: (photoFiles, photoPreviewUrls) => set({ photoFiles, photoPreviewUrls }),
   setFinal: (finalBlobUrl, finalDuration) => set({ finalBlobUrl, finalDuration }),
   setCover: (coverDataUrl) => set({ coverDataUrl }),
   reset: () => set({ ...initialState }),

@@ -385,11 +385,11 @@ function CreatePageInner() {
         )}
 
         <div className="flex items-center justify-center gap-8 mt-4 text-sm">
-          {["Camera", "Templates", "Live"].map((t) => (
-            <span key={t} className={cn("font-semibold", t === "Camera" ? "text-white" : "text-white/40")}>
-              {t}
-            </span>
-          ))}
+          <span className="font-semibold text-white">Camera</span>
+          <button onClick={() => router.push("/create/photos")} className="font-semibold text-white/40 hover:text-white/70">
+            Photos
+          </button>
+          <span className="font-semibold text-white/40">Live</span>
         </div>
       </div>
 

@@ -130,7 +130,8 @@ model Video {
   id             String   @id @default(cuid())
   userId         String
   caption        String   @default("")
-  videoUrl       String
+  postType       String   @default("video") // video | photo
+  videoUrl       String?
   thumbnailUrl   String
   duration       Int      @default(15) // seconds
   aspectRatio    String   @default("9:16")
@@ -150,6 +151,7 @@ model Video {
   sound        Sound?          @relation(fields: [soundId], references: [id])
   duetOf       Video?          @relation("VideoDuets", fields: [duetOfId], references: [id], onDelete: SetNull)
   duets        Video[]         @relation("VideoDuets")
+  photos       PostPhoto[]
   hashtags     VideoHashtag[]
   views        VideoView[]
   likes        Like[]
@@ -163,6 +165,17 @@ model Video {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model PostPhoto {
+  id      String @id @default(cuid())
+  videoId String
+  url     String
+  order   Int
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
 }
 
 model VideoView {

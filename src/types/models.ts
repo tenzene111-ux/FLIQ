@@ -22,7 +22,9 @@ export interface SoundDTO {
 export interface VideoDTO {
   id: string;
   caption: string;
-  videoUrl: string;
+  postType: string;
+  videoUrl: string | null;
+  photos: string[];
   thumbnailUrl: string;
   duration: number;
   aspectRatio: string;

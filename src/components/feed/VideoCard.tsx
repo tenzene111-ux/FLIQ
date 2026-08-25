@@ -32,10 +32,13 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
   const router = useRouter();
   const currentUser = useAuthStore((s) => s.user);
 
+  const isPhoto = video.postType === "photo";
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(true);
   const [showPlayIcon, setShowPlayIcon] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const [errored, setErrored] = useState(false);
   const [heartBurst, setHeartBurst] = useState<{ x: number; y: number; id: number } | null>(null);
   const lastTapRef = useRef(0);
@@ -73,6 +76,17 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
   }
 
   useEffect(() => {
+    if (isPhoto) {
+      if (isActive) {
+        watchStartRef.current = Date.now();
+        maxWatchedRef.current = video.duration;
+        audioRef.current?.play().catch(() => {});
+      } else {
+        audioRef.current?.pause();
+        recordView();
+      }
+      return;
+    }
     const el = videoRef.current;
     if (!el) return;
     if (isActive && !errored) {
@@ -138,17 +152,26 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
 
   function handleTap(e: React.MouseEvent | React.TouchEvent) {
     const now = Date.now();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const point = "touches" in e ? e.changedTouches[0] : (e as React.MouseEvent);
+    const tapX = point.clientX - rect.left;
+
     if (now - lastTapRef.current < 300) {
       // double tap → like
       if (!liked) doLike();
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const point = "touches" in e ? e.changedTouches[0] : (e as React.MouseEvent);
-      setHeartBurst({ x: point.clientX - rect.left, y: point.clientY - rect.top, id: now });
+      setHeartBurst({ x: tapX, y: point.clientY - rect.top, id: now });
       setTimeout(() => setHeartBurst(null), 900);
     } else {
       lastTapRef.current = now;
       setTimeout(() => {
-        if (Date.now() - lastTapRef.current >= 295) togglePlay();
+        if (Date.now() - lastTapRef.current >= 295) {
+          if (isPhoto) {
+            if (tapX < rect.width / 2) setPhotoIndex((i) => Math.max(0, i - 1));
+            else setPhotoIndex((i) => Math.min(video.photos.length - 1, i + 1));
+          } else {
+            togglePlay();
+          }
+        }
       }, 300);
     }
   }
@@ -187,10 +210,22 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
 
   return (
     <div className="relative w-full h-full bg-black snap-item overflow-hidden">
-      {!errored ? (
+      {isPhoto ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={video.photos[photoIndex] ?? video.thumbnailUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            onClick={handleTap}
+            onTouchEnd={handleTap}
+          />
+          {video.sound && <audio ref={audioRef} src={video.sound.audioUrl} loop />}
+        </>
+      ) : !errored ? (
         <video
           ref={videoRef}
-          src={video.videoUrl}
+          src={video.videoUrl ?? undefined}
           poster={video.thumbnailUrl}
           className="absolute inset-0 w-full h-full object-cover"
           loop
@@ -215,7 +250,7 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
 
-      {!playing && !errored && (
+      {!isPhoto && !playing && !errored && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <Play size={64} className="text-white/90 drop-shadow-lg" fill="white" />
         </div>
@@ -235,10 +270,22 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
         />
       )}
 
-      {/* progress bar */}
-      <div className="absolute top-0 inset-x-0 h-0.5 bg-white/15 z-10">
-        <div className="h-full bg-white transition-[width] duration-150" style={{ width: `${progress}%` }} />
-      </div>
+      {/* progress indicator */}
+      {isPhoto ? (
+        video.photos.length > 1 && (
+          <div className="absolute top-2 inset-x-2 z-10 flex gap-1">
+            {video.photos.map((_, i) => (
+              <div key={i} className="flex-1 h-0.5 rounded-full bg-white/25 overflow-hidden">
+                <div className={cn("h-full bg-white", i <= photoIndex ? "w-full" : "w-0")} />
+              </div>
+            ))}
+          </div>
+        )
+      ) : (
+        <div className="absolute top-0 inset-x-0 h-0.5 bg-white/15 z-10">
+          <div className="h-full bg-white transition-[width] duration-150" style={{ width: `${progress}%` }} />
+        </div>
+      )}
 
       {/* right action rail */}
       <div className="absolute right-2.5 bottom-24 md:bottom-6 z-10 flex flex-col items-center gap-5">
@@ -387,7 +434,7 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
 
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)}>
         <div className="px-2 pb-3">
-          {!isOwn && video.allowDuet && (
+          {!isOwn && video.allowDuet && video.postType !== "photo" && (
             <MoreItem
               icon={SquareSplitHorizontal}
               label="Duet"

@@ -68,6 +68,8 @@ function PostPageInner() {
   }, [draftId]);
 
   const previewSrc = resumedVideo?.videoUrl ?? draft.finalBlobUrl ?? undefined;
+  const isPhotoPost = draft.photoPreviewUrls.length > 0 || resumedVideo?.postType === "photo";
+  const photoPreviews = resumedVideo?.postType === "photo" ? resumedVideo.photos : draft.photoPreviewUrls;
   const hashtags = extractHashtags(caption);
   const mentions = extractMentions(caption);
 
@@ -97,21 +99,26 @@ function PostPageInner() {
         return;
       }
 
-      if (!draft.finalBlobUrl) return;
-      const videoBlob = await fetch(draft.finalBlobUrl).then((r) => r.blob());
       const form = new FormData();
-      form.append("video", videoBlob, "video.webm");
+      if (draft.photoFiles.length > 0) {
+        for (const f of draft.photoFiles) form.append("photos", f);
+        form.append("postType", "photo");
+      } else {
+        if (!draft.finalBlobUrl) return;
+        const videoBlob = await fetch(draft.finalBlobUrl).then((r) => r.blob());
+        form.append("video", videoBlob, "video.webm");
+        form.append("duration", String(Math.round(draft.finalDuration || 15)));
+        if (draft.coverDataUrl) form.append("cover", draft.coverDataUrl);
+        if (draft.duetOfId) form.append("duetOfId", draft.duetOfId);
+      }
       form.append("caption", caption);
       form.append("location", location);
       form.append("privacy", privacy);
       form.append("allowComments", String(allowComments));
       form.append("allowDuet", String(allowDuet));
       form.append("allowDownload", String(allowDownload));
-      form.append("duration", String(Math.round(draft.finalDuration || 15)));
       form.append("status", saveAsDraft ? "draft" : "published");
       if (draft.soundId) form.append("soundId", draft.soundId);
-      if (draft.coverDataUrl) form.append("cover", draft.coverDataUrl);
-      if (draft.duetOfId) form.append("duetOfId", draft.duetOfId);
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -172,7 +179,7 @@ function PostPageInner() {
   }
 
   if (loadingDraft) return null;
-  if (!draftId && !draft.finalBlobUrl) return null;
+  if (!draftId && !draft.finalBlobUrl && draft.photoFiles.length === 0) return null;
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
@@ -180,7 +187,9 @@ function PostPageInner() {
         <button onClick={() => router.back()} className="text-white" aria-label="Back" disabled={uploading}>
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-white font-semibold text-base flex-1">{draftId ? "Edit draft" : "New post"}</h1>
+        <h1 className="text-white font-semibold text-base flex-1">
+          {draftId ? "Edit draft" : isPhotoPost ? "New photo post" : "New post"}
+        </h1>
         {draftId && (
           <button onClick={handleDeleteDraft} className="text-danger" aria-label="Delete draft" disabled={uploading}>
             <Trash2 size={19} />
@@ -190,19 +199,29 @@ function PostPageInner() {
 
       <div className="px-4 flex gap-4">
         <div className="flex flex-col gap-2 shrink-0">
-          <div className="relative w-28 aspect-[9/16] rounded-xl overflow-hidden bg-surface-2 border border-border">
-            <video
-              ref={videoRef}
-              src={previewSrc}
-              className="w-full h-full object-cover"
-              muted
-              loop
-              autoPlay
-              playsInline
-              poster={draft.coverDataUrl ?? resumedVideo?.thumbnailUrl ?? undefined}
-            />
-          </div>
-          {!draftId && (
+          {isPhotoPost ? (
+            <div className="w-28 flex flex-col gap-1.5">
+              <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-surface-2 border border-border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photoPreviews[0]} alt="" className="w-full h-full object-cover" />
+              </div>
+              {photoPreviews.length > 1 && <p className="text-[11px] text-muted text-center">{photoPreviews.length} photos</p>}
+            </div>
+          ) : (
+            <div className="relative w-28 aspect-[9/16] rounded-xl overflow-hidden bg-surface-2 border border-border">
+              <video
+                ref={videoRef}
+                src={previewSrc}
+                className="w-full h-full object-cover"
+                muted
+                loop
+                autoPlay
+                playsInline
+                poster={draft.coverDataUrl ?? resumedVideo?.thumbnailUrl ?? undefined}
+              />
+            </div>
+          )}
+          {!draftId && !isPhotoPost && (
             <button onClick={() => setCoverPickerOpen((v) => !v)} className="text-xs text-fliq-cyan text-center">
               Edit cover
             </button>
@@ -270,7 +289,7 @@ function PostPageInner() {
       </div>
 
       <div className="px-4 mt-2">
-        <p className="text-white text-sm font-semibold mb-2">Who can watch this video</p>
+        <p className="text-white text-sm font-semibold mb-2">Who can watch this {isPhotoPost ? "post" : "video"}</p>
         <div className="flex gap-2">
           {PRIVACY_OPTIONS.map((p) => (
             <button

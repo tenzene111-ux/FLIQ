@@ -62,14 +62,14 @@ export default function DuetPage({ params }: { params: Promise<{ id: string }> }
     fetch(`/api/videos/${id}`)
       .then((r) => r.json())
       .then((d) => {
-        if (!d.video || !d.video.allowDuet) throw new Error();
+        if (!d.video || !d.video.allowDuet || d.video.postType === "photo") throw new Error();
         setOriginal(d.video);
       })
       .catch(() => setLoadError("This video isn't available for Duet."));
   }, [id]);
 
   useEffect(() => {
-    if (!original) return;
+    if (!original || !original.videoUrl) return;
     const v = document.createElement("video");
     v.src = original.videoUrl;
     v.crossOrigin = "anonymous";

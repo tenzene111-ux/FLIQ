@@ -41,6 +41,7 @@ export function videoInclude(viewerId?: string | null) {
     hashtags: { include: { hashtag: true } },
     analytics: true,
     duetOf: { select: { id: true, user: { select: publicUserSelect } } },
+    photos: { orderBy: { order: "asc" } },
     _count: { select: { likes: true, comments: true, shares: true, saves: true, reposts: true } },
     likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
     saves: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
@@ -61,7 +62,9 @@ export function serializeVideo(v: VideoWithRelations, followingIds?: Set<string>
   return {
     id: v.id,
     caption: v.caption,
+    postType: v.postType,
     videoUrl: v.videoUrl,
+    photos: v.photos.map((p) => p.url),
     thumbnailUrl: v.thumbnailUrl,
     duration: v.duration,
     aspectRatio: v.aspectRatio,
