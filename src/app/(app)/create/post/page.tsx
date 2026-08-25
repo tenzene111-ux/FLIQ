@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, MapPin, AtSign, Hash, RefreshCcw } from "lucide-react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, MapPin, AtSign, Hash, RefreshCcw, Trash2 } from "lucide-react";
 import { useCreateDraftStore } from "@/store/create-draft";
 import { useAuthStore } from "@/store/auth";
 import { Textarea, Input } from "@/components/ui/Input";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { toast } from "@/store/toast";
 import { extractHashtags, extractMentions, cn } from "@/lib/utils";
+import type { VideoDTO } from "@/types/models";
 
 const PRIVACY_OPTIONS = [
   { id: "everyone", label: "Everyone" },
@@ -17,8 +18,10 @@ const PRIVACY_OPTIONS = [
   { id: "onlyMe", label: "Only me" },
 ] as const;
 
-export default function PostPage() {
+function PostPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const draftId = searchParams.get("draftId");
   const draft = useCreateDraftStore();
   const user = useAuthStore((s) => s.user);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -34,22 +37,67 @@ export default function PostPage() {
   const [error, setError] = useState<string | null>(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
 
+  const [resumedVideo, setResumedVideo] = useState<VideoDTO | null>(null);
+  const [loadingDraft, setLoadingDraft] = useState(!!draftId);
+
   useEffect(() => {
+    if (draftId) {
+      fetch(`/api/videos/${draftId}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (!d.video) throw new Error();
+          setResumedVideo(d.video);
+          setCaption(d.video.caption || "");
+          setLocation(d.video.location || "");
+          setPrivacy(d.video.privacy || "everyone");
+          setAllowComments(d.video.allowComments);
+          setAllowDuet(d.video.allowDuet);
+          setAllowDownload(d.video.allowDownload);
+        })
+        .catch(() => {
+          toast("error", "Couldn't load that draft");
+          router.replace("/create");
+        })
+        .finally(() => setLoadingDraft(false));
+      return;
+    }
     if (!draft.finalBlobUrl) {
       router.replace("/create");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [draftId]);
 
+  const previewSrc = resumedVideo?.videoUrl ?? draft.finalBlobUrl ?? undefined;
   const hashtags = extractHashtags(caption);
   const mentions = extractMentions(caption);
 
-  async function handlePost() {
-    if (!draft.finalBlobUrl) return;
+  async function handlePost(saveAsDraft: boolean) {
     setUploading(true);
     setError(null);
     setProgress(0);
     try {
+      if (draftId) {
+        const res = await fetch(`/api/videos/${draftId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            caption,
+            location,
+            privacy,
+            allowComments,
+            allowDuet,
+            allowDownload,
+            status: saveAsDraft ? "draft" : "published",
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Couldn't save");
+        toast("success", saveAsDraft ? "Draft saved" : "Posted to Fliq!");
+        router.push(`/profile/${user?.username}`);
+        return;
+      }
+
+      if (!draft.finalBlobUrl) return;
       const videoBlob = await fetch(draft.finalBlobUrl).then((r) => r.blob());
       const form = new FormData();
       form.append("video", videoBlob, "video.webm");
@@ -60,6 +108,7 @@ export default function PostPage() {
       form.append("allowDuet", String(allowDuet));
       form.append("allowDownload", String(allowDownload));
       form.append("duration", String(Math.round(draft.finalDuration || 15)));
+      form.append("status", saveAsDraft ? "draft" : "published");
       if (draft.soundId) form.append("soundId", draft.soundId);
       if (draft.coverDataUrl) form.append("cover", draft.coverDataUrl);
 
@@ -84,14 +133,22 @@ export default function PostPage() {
         xhr.send(form);
       });
 
-      toast("success", "Posted to Fliq!");
+      toast("success", saveAsDraft ? "Saved to your drafts" : "Posted to Fliq!");
       draft.reset();
       router.push(`/profile/${user?.username}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setUploading(false);
     }
+  }
+
+  async function handleDeleteDraft() {
+    if (!draftId) return;
+    if (!window.confirm("Delete this draft? This can't be undone.")) return;
+    await fetch(`/api/videos/${draftId}`, { method: "DELETE" }).catch(() => {});
+    toast("success", "Draft deleted");
+    router.push(`/profile/${user?.username}`);
   }
 
   function pickCoverFrame(time: number) {
@@ -113,7 +170,8 @@ export default function PostPage() {
     };
   }
 
-  if (!draft.finalBlobUrl) return null;
+  if (loadingDraft) return null;
+  if (!draftId && !draft.finalBlobUrl) return null;
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-8">
@@ -121,17 +179,33 @@ export default function PostPage() {
         <button onClick={() => router.back()} className="text-white" aria-label="Back" disabled={uploading}>
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-white font-semibold text-base">New post</h1>
+        <h1 className="text-white font-semibold text-base flex-1">{draftId ? "Edit draft" : "New post"}</h1>
+        {draftId && (
+          <button onClick={handleDeleteDraft} className="text-danger" aria-label="Delete draft" disabled={uploading}>
+            <Trash2 size={19} />
+          </button>
+        )}
       </div>
 
       <div className="px-4 flex gap-4">
         <div className="flex flex-col gap-2 shrink-0">
           <div className="relative w-28 aspect-[9/16] rounded-xl overflow-hidden bg-surface-2 border border-border">
-            <video ref={videoRef} src={draft.finalBlobUrl} className="w-full h-full object-cover" muted loop autoPlay playsInline poster={draft.coverDataUrl ?? undefined} />
+            <video
+              ref={videoRef}
+              src={previewSrc}
+              className="w-full h-full object-cover"
+              muted
+              loop
+              autoPlay
+              playsInline
+              poster={draft.coverDataUrl ?? resumedVideo?.thumbnailUrl ?? undefined}
+            />
           </div>
-          <button onClick={() => setCoverPickerOpen((v) => !v)} className="text-xs text-fliq-cyan text-center">
-            Edit cover
-          </button>
+          {!draftId && (
+            <button onClick={() => setCoverPickerOpen((v) => !v)} className="text-xs text-fliq-cyan text-center">
+              Edit cover
+            </button>
+          )}
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-3">
@@ -179,9 +253,11 @@ export default function PostPage() {
       )}
 
       <div className="px-4 mt-6 flex flex-col gap-1 divide-y divide-border">
-        <Row icon={Hash} label="Add sound">
-          <span className="text-sm text-muted truncate max-w-[140px]">{draft.soundLabel ?? "None selected"}</span>
-        </Row>
+        {!draftId && (
+          <Row icon={Hash} label="Add sound">
+            <span className="text-sm text-muted truncate max-w-[140px]">{draft.soundLabel ?? "None selected"}</span>
+          </Row>
+        )}
         <Row icon={MapPin} label="Location">
           <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Add location" className="w-40 py-1.5" />
         </Row>
@@ -219,17 +295,28 @@ export default function PostPage() {
         </div>
       )}
 
-      <div className="px-4 mt-8">
+      <div className="px-4 mt-8 flex flex-col gap-2">
         {uploading && (
-          <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden mb-3">
+          <div className="w-full h-1.5 bg-surface-3 rounded-full overflow-hidden mb-1">
             <div className="h-full bg-gradient-brand-horizontal transition-[width]" style={{ width: `${progress}%` }} />
           </div>
         )}
-        <Button fullWidth size="lg" loading={uploading} onClick={handlePost}>
+        <Button fullWidth size="lg" loading={uploading} onClick={() => handlePost(false)}>
           {uploading ? `Posting... ${progress}%` : "Post to Fliq"}
+        </Button>
+        <Button fullWidth size="lg" variant="secondary" disabled={uploading} onClick={() => handlePost(true)}>
+          Save draft
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function PostPage() {
+  return (
+    <Suspense fallback={null}>
+      <PostPageInner />
+    </Suspense>
   );
 }
 

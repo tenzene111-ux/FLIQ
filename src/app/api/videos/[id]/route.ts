@@ -1,13 +1,16 @@
+import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { jsonError, jsonOk, withErrorHandling, withAuth } from "@/lib/api";
 import { videoInclude, serializeVideo } from "@/lib/serialize";
 import { getFollowingIdSet } from "@/lib/social";
+import { extractHashtags, extractMentions } from "@/lib/utils";
 
 export const GET = withErrorHandling<{ id: string }>(async (_req, { params }) => {
   const viewer = await getCurrentUser();
   const video = await prisma.video.findUnique({ where: { id: params.id }, include: videoInclude(viewer?.id) });
   if (!video || video.status === "removed") return jsonError("This video isn't available", 404);
+  if (video.status === "draft" && video.userId !== viewer?.id) return jsonError("This video isn't available", 404);
   if (video.privacy === "onlyMe" && video.userId !== viewer?.id) return jsonError("This video isn't available", 404);
 
   const followingIds = await getFollowingIdSet(viewer?.id);
@@ -25,4 +28,66 @@ export const DELETE = withAuth<{ id: string }>(async (_req, { user, params }) =>
 
   await prisma.video.delete({ where: { id: video.id } });
   return jsonOk({ ok: true });
+});
+
+/** Edits a draft's fields, and/or publishes it (draft -> published). */
+export const PATCH = withAuth<{ id: string }>(async (req: NextRequest, { user, params }) => {
+  const existing = await prisma.video.findUnique({ where: { id: params.id } });
+  if (!existing) return jsonError("Video not found", 404);
+  if (existing.userId !== user.id) return jsonError("You can only edit your own videos", 403);
+  if (existing.status !== "draft") return jsonError("Only drafts can be edited this way", 400);
+
+  const body = await req.json().catch(() => null);
+  if (!body) return jsonError("Invalid request body", 422);
+
+  const caption = typeof body.caption === "string" ? body.caption.slice(0, 2200) : existing.caption;
+  const location = typeof body.location === "string" ? body.location.slice(0, 100) || null : existing.location;
+  const privacy = ["everyone", "followers", "onlyMe"].includes(body.privacy) ? body.privacy : existing.privacy;
+  const allowComments = typeof body.allowComments === "boolean" ? body.allowComments : existing.allowComments;
+  const allowDuet = typeof body.allowDuet === "boolean" ? body.allowDuet : existing.allowDuet;
+  const allowDownload = typeof body.allowDownload === "boolean" ? body.allowDownload : existing.allowDownload;
+  const publish = body.status === "published";
+
+  const hashtagTags = extractHashtags(caption);
+  await prisma.videoHashtag.deleteMany({ where: { videoId: existing.id } });
+
+  const video = await prisma.video.update({
+    where: { id: existing.id },
+    data: {
+      caption,
+      location,
+      privacy,
+      allowComments,
+      allowDuet,
+      allowDownload,
+      status: publish ? "published" : "draft",
+      hashtags: {
+        create: await Promise.all(
+          hashtagTags.map(async (tag) => {
+            const hashtag = await prisma.hashtag.upsert({
+              where: { tag },
+              create: { tag },
+              update: { viewCount: { increment: 1 } },
+            });
+            return { hashtagId: hashtag.id };
+          })
+        ),
+      },
+    },
+    include: videoInclude(user.id),
+  });
+
+  if (publish) {
+    const mentionUsernames = extractMentions(caption);
+    if (mentionUsernames.length) {
+      const mentioned = await prisma.user.findMany({ where: { username: { in: mentionUsernames } } });
+      for (const m of mentioned) {
+        if (m.id === user.id) continue;
+        await prisma.notification.create({ data: { recipientId: m.id, actorId: user.id, type: "mention", videoId: video.id } });
+      }
+    }
+  }
+
+  const followingIds = await getFollowingIdSet(user.id);
+  return jsonOk({ video: serializeVideo(video, followingIds) });
 });

@@ -5,11 +5,17 @@ import { Play, Lock } from "lucide-react";
 import { formatCount } from "@/lib/utils";
 import type { VideoDTO } from "@/types/models";
 
-export function VideoGrid({ videos }: { videos: (VideoDTO & { views?: number })[] }) {
+export function VideoGrid({
+  videos,
+  linkBuilder,
+}: {
+  videos: (VideoDTO & { views?: number })[];
+  linkBuilder?: (v: VideoDTO) => string;
+}) {
   return (
     <div className="grid grid-cols-3 gap-0.5">
       {videos.map((v) => (
-        <Link key={v.id} href={`/video/${v.id}`} className="relative aspect-[9/16] bg-surface-2 group overflow-hidden">
+        <Link key={v.id} href={linkBuilder ? linkBuilder(v) : `/video/${v.id}`} className="relative aspect-[9/16] bg-surface-2 group overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={v.thumbnailUrl} alt={v.caption} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />

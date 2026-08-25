@@ -23,6 +23,7 @@ export const POST = withAuth(async (req, { user }) => {
   const soundId = form.get("soundId") ? String(form.get("soundId")) : null;
   const cover = form.get("cover") ? String(form.get("cover")) : null;
   const duration = Math.max(1, Math.round(Number(form.get("duration")) || 15));
+  const status = String(form.get("status")) === "draft" ? "draft" : "published";
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const ext = file.type.includes("mp4") ? "mp4" : "webm";
@@ -44,6 +45,7 @@ export const POST = withAuth(async (req, { user }) => {
       allowDuet,
       allowDownload,
       soundId: soundId || undefined,
+      status,
       analytics: { create: {} },
       hashtags: {
         create: await Promise.all(
@@ -61,7 +63,7 @@ export const POST = withAuth(async (req, { user }) => {
     include: videoInclude(user.id),
   });
 
-  if (mentionUsernames.length) {
+  if (status === "published" && mentionUsernames.length) {
     const mentioned = await prisma.user.findMany({ where: { username: { in: mentionUsernames } } });
     for (const m of mentioned) {
       if (m.id === user.id) continue;

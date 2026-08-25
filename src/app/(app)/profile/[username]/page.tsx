@@ -18,6 +18,7 @@ import {
   UserX,
   Flag,
   BarChart3,
+  FileEdit,
 } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Avatar } from "@/components/ui/Avatar";
@@ -34,7 +35,7 @@ import { toast } from "@/store/toast";
 import { formatCount, cn } from "@/lib/utils";
 import type { VideoDTO } from "@/types/models";
 
-type Tab = "videos" | "reposts" | "liked" | "saved";
+type Tab = "videos" | "reposts" | "liked" | "saved" | "drafts";
 
 interface ProfileUser {
   id: string;
@@ -139,7 +140,13 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const tabs: { id: Tab; icon: typeof Video; label: string }[] = [
     { id: "videos", icon: Video, label: "Videos" },
     { id: "reposts", icon: Repeat2, label: "Reposts" },
-    ...(user?.isOwn ? ([{ id: "liked", icon: Heart, label: "Liked" }, { id: "saved", icon: Bookmark, label: "Saved" }] as const) : []),
+    ...(user?.isOwn
+      ? ([
+          { id: "liked", icon: Heart, label: "Liked" },
+          { id: "saved", icon: Bookmark, label: "Saved" },
+          { id: "drafts", icon: FileEdit, label: "Drafts" },
+        ] as const)
+      : []),
   ];
 
   return (
@@ -256,7 +263,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             <VideoGridSkeleton />
           ) : videos.length === 0 ? (
             <EmptyState
-              icon={tab === "videos" ? Video : tab === "reposts" ? Repeat2 : tab === "liked" ? Heart : Bookmark}
+              icon={tab === "videos" ? Video : tab === "reposts" ? Repeat2 : tab === "liked" ? Heart : tab === "drafts" ? FileEdit : Bookmark}
               title={
                 tab === "videos"
                   ? user.isOwn
@@ -266,11 +273,13 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                     ? "No reposts yet"
                     : tab === "liked"
                       ? "No liked videos yet"
-                      : "Save videos you love and find them here."
+                      : tab === "drafts"
+                        ? "Drafts you save while creating will show up here"
+                        : "Save videos you love and find them here."
               }
             />
           ) : (
-            <VideoGrid videos={videos} />
+            <VideoGrid videos={videos} linkBuilder={tab === "drafts" ? (v) => `/create/post?draftId=${v.id}` : undefined} />
           )}
         </>
       )}

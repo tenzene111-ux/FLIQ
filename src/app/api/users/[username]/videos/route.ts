@@ -12,7 +12,7 @@ export const GET = withErrorHandling<{ username: string }>(async (req, { params 
   const isOwn = viewer?.id === target.id;
   const tab = req.nextUrl.searchParams.get("tab") || "videos";
 
-  if ((tab === "liked" || tab === "saved") && !isOwn) {
+  if ((tab === "liked" || tab === "saved" || tab === "drafts") && !isOwn) {
     return jsonError("This list is private", 403);
   }
 
@@ -43,6 +43,16 @@ export const GET = withErrorHandling<{ username: string }>(async (req, { params 
       take: 60,
     });
     return jsonOk({ videos: likes.map((l) => serializeVideo(l.video, followingIds)) });
+  }
+
+  if (tab === "drafts") {
+    const drafts = await prisma.video.findMany({
+      where: { userId: target.id, status: "draft" },
+      include: videoInclude(viewer?.id),
+      orderBy: { updatedAt: "desc" },
+      take: 60,
+    });
+    return jsonOk({ videos: drafts.map((v) => serializeVideo(v, followingIds)) });
   }
 
   if (tab === "saved") {
