@@ -42,6 +42,7 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
   const [errored, setErrored] = useState(false);
   const [heartBurst, setHeartBurst] = useState<{ x: number; y: number; id: number } | null>(null);
   const lastTapRef = useRef(0);
+  const tapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [liked, setLiked] = useState(video.viewer.isLiked);
   const [likeCount, setLikeCount] = useState(video.counts.likes);
@@ -104,6 +105,7 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
   useEffect(() => {
     return () => {
       if (isActive) recordView();
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -151,6 +153,11 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
   }
 
   function handleTap(e: React.MouseEvent | React.TouchEvent) {
+    // A tap fires both `touchend` and a follow-up synthetic `click` on real
+    // touchscreens; without this, one physical tap could be read as two taps
+    // in quick succession and misfire as a double-tap like.
+    e.preventDefault();
+
     const now = Date.now();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const point = "touches" in e ? e.changedTouches[0] : (e as React.MouseEvent);
@@ -158,19 +165,22 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
 
     if (now - lastTapRef.current < 300) {
       // double tap → like
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
       if (!liked) doLike();
       setHeartBurst({ x: tapX, y: point.clientY - rect.top, id: now });
       setTimeout(() => setHeartBurst(null), 900);
     } else {
       lastTapRef.current = now;
-      setTimeout(() => {
-        if (Date.now() - lastTapRef.current >= 295) {
-          if (isPhoto) {
-            if (tapX < rect.width / 2) setPhotoIndex((i) => Math.max(0, i - 1));
-            else setPhotoIndex((i) => Math.min(video.photos.length - 1, i + 1));
-          } else {
-            togglePlay();
-          }
+      tapTimeoutRef.current = setTimeout(() => {
+        tapTimeoutRef.current = null;
+        if (isPhoto) {
+          if (tapX < rect.width / 2) setPhotoIndex((i) => Math.max(0, i - 1));
+          else setPhotoIndex((i) => Math.min(video.photos.length - 1, i + 1));
+        } else {
+          togglePlay();
         }
       }, 300);
     }
