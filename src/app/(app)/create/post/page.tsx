@@ -61,7 +61,7 @@ function PostPageInner() {
         .finally(() => setLoadingDraft(false));
       return;
     }
-    if (!draft.finalBlobUrl) {
+    if (!draft.finalBlobUrl && draft.photoFiles.length === 0) {
       router.replace("/create");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
