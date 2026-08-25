@@ -56,5 +56,20 @@ export function useFeed(tab: "foryou" | "following") {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  return { videos, loading, error, empty, loadMore: () => load(false), reload: () => { reset(); load(true); } };
+  const removeVideo = useCallback((id: string) => {
+    setVideos((prev) => prev.filter((v) => v.id !== id));
+  }, []);
+
+  return {
+    videos,
+    loading,
+    error,
+    empty,
+    loadMore: () => load(false),
+    reload: () => {
+      reset();
+      load(true);
+    },
+    removeVideo,
+  };
 }

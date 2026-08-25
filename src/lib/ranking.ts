@@ -31,6 +31,45 @@ export async function getHashtagAffinity(userId: string): Promise<Map<string, nu
 }
 
 /**
+ * Derives what to suppress in future recommendations from the videos a
+ * viewer has marked "Not Interested" on: the exact videos (excluded
+ * outright) plus the creators and hashtags behind them (down-weighted, so
+ * similar content is pushed down rather than just that one video).
+ */
+export async function getNegativeSignal(userId: string) {
+  const rows = await prisma.notInterested.findMany({
+    where: { userId },
+    select: {
+      videoId: true,
+      video: { select: { userId: true, hashtags: { select: { hashtag: { select: { tag: true } } } } } },
+    },
+  });
+
+  const videoIds = new Set(rows.map((r) => r.videoId));
+  const hashtagPenalty = new Map<string, number>();
+  const creatorPenalty = new Map<string, number>();
+  for (const r of rows) {
+    creatorPenalty.set(r.video.userId, (creatorPenalty.get(r.video.userId) ?? 0) + 1);
+    for (const h of r.video.hashtags) {
+      const tag = h.hashtag.tag;
+      hashtagPenalty.set(tag, (hashtagPenalty.get(tag) ?? 0) + 1);
+    }
+  }
+  return { videoIds, hashtagPenalty, creatorPenalty };
+}
+
+/** True if a video's caption or hashtags match any of the viewer's blocked keywords. */
+export function matchesKeywordFilter(caption: string, hashtags: string[], filters: string[]): boolean {
+  if (filters.length === 0) return false;
+  const lowerCaption = caption.toLowerCase();
+  const lowerHashtags = new Set(hashtags.map((h) => h.toLowerCase()));
+  return filters.some((raw) => {
+    const kw = raw.replace(/^#/, "").trim().toLowerCase();
+    return kw.length > 0 && (lowerCaption.includes(kw) || lowerHashtags.has(kw));
+  });
+}
+
+/**
  * Round-robins a scored page by author so the same creator doesn't appear
  * twice in a row. Only reorders within the given items — never changes
  * which videos are included, so pagination math elsewhere stays correct.

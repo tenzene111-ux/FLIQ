@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { jsonOk, withErrorHandling } from "@/lib/api";
 import { videoInclude, serializeVideo } from "@/lib/serialize";
 import { getFollowingIdSet } from "@/lib/social";
-import { getHashtagAffinity, diversifyByAuthor } from "@/lib/ranking";
+import { getHashtagAffinity, getNegativeSignal, matchesKeywordFilter, diversifyByAuthor } from "@/lib/ranking";
 
 const PAGE_SIZE = 6;
 
@@ -34,9 +34,17 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     return jsonOk({ videos: serialized, nextOffset: videos.length === PAGE_SIZE ? offset + PAGE_SIZE : null });
   }
 
+  const negative = viewer
+    ? await getNegativeSignal(viewer.id)
+    : { videoIds: new Set<string>(), hashtagPenalty: new Map<string, number>(), creatorPenalty: new Map<string, number>() };
+
   // For You: score-based ranking over the full published catalog.
   const all = await prisma.video.findMany({
-    where: { status: "published", ...(blockedIds.length ? { userId: { notIn: blockedIds } } : {}) },
+    where: {
+      status: "published",
+      ...(blockedIds.length ? { userId: { notIn: blockedIds } } : {}),
+      ...(negative.videoIds.size ? { id: { notIn: [...negative.videoIds] } } : {}),
+    },
     include: videoInclude(viewer?.id),
   });
 
@@ -50,6 +58,16 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   }
   const affinity = viewer ? await getHashtagAffinity(viewer.id) : new Map<string, number>();
 
+  let keywordFilters: string[] = [];
+  if (viewer) {
+    const settings = await prisma.userSettings.findUnique({ where: { userId: viewer.id }, select: { keywordFilters: true } });
+    try {
+      keywordFilters = JSON.parse(settings?.keywordFilters || "[]");
+    } catch {
+      keywordFilters = [];
+    }
+  }
+
   const daySeed = new Date().toISOString().slice(0, 10);
   const jitterSeed = `${viewer?.id ?? "anon"}-${daySeed}`;
 
@@ -60,27 +78,37 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     return (Math.abs(h) % 1000) / 1000; // 0..1
   }
 
-  const scored = all.map((v) => {
-    const dto = serializeVideo(v, followingIds);
-    const ageHours = (Date.now() - v.createdAt.getTime()) / 3600000;
-    const freshness = Math.max(0, 72 - ageHours) * 40; // newer videos ranked higher, decays over 3 days
-    const engagement =
-      dto.counts.views * 0.002 +
-      dto.counts.likes * 0.6 +
-      dto.counts.comments * 1.2 +
-      dto.counts.shares * 1.5 +
-      dto.counts.saves * 1.0;
-    const completionBonus = (v.analytics?.completionRate ?? 0.4) * 3000;
-    // Static onboarding interests give a flat bonus; real behavior (likes,
-    // completed watches) gives a scaled bonus once the viewer has any history,
-    // so the feed adapts to what they actually engage with over time.
-    const staticInterestBonus = dto.hashtags.some((h) => interests.includes(h)) ? 4000 : 0;
-    const affinityBonus = dto.hashtags.reduce((sum, h) => sum + (affinity.get(h) ?? 0), 0) * 250;
-    const followBonus = dto.viewer.isFollowingAuthor ? 2500 : 0;
-    const jitter = hashJitter(v.id) * 1500;
-    const score = freshness + engagement + completionBonus + staticInterestBonus + affinityBonus + followBonus + jitter;
-    return { dto, score };
-  });
+  const scored = all
+    .filter((v) => !matchesKeywordFilter(v.caption, v.hashtags.map((h) => h.hashtag.tag), keywordFilters))
+    .map((v) => {
+      const dto = serializeVideo(v, followingIds);
+      const ageHours = (Date.now() - v.createdAt.getTime()) / 3600000;
+      const freshness = Math.max(0, 72 - ageHours) * 40; // newer videos ranked higher, decays over 3 days
+      const engagement =
+        dto.counts.views * 0.002 +
+        dto.counts.likes * 0.6 +
+        dto.counts.comments * 1.2 +
+        dto.counts.shares * 1.5 +
+        dto.counts.saves * 1.0;
+      const completionBonus = (v.analytics?.completionRate ?? 0.4) * 3000;
+      // Static onboarding interests give a flat bonus; real behavior (likes,
+      // completed watches) gives a scaled bonus once the viewer has any history,
+      // so the feed adapts to what they actually engage with over time.
+      const staticInterestBonus = dto.hashtags.some((h) => interests.includes(h)) ? 4000 : 0;
+      const affinityBonus = dto.hashtags.reduce((sum, h) => sum + (affinity.get(h) ?? 0), 0) * 250;
+      const followBonus = dto.viewer.isFollowingAuthor ? 2500 : 0;
+      const jitter = hashJitter(v.id) * 1500;
+      // "Not Interested" pushes down similar creators/hashtags rather than
+      // just hiding the one video (which is already excluded from `all`).
+      const negativePenalty =
+        (negative.creatorPenalty.get(v.userId) ?? 0) * 3000 +
+        dto.hashtags.reduce((sum, h) => sum + (negative.hashtagPenalty.get(h) ?? 0), 0) * 800;
+      const score =
+        freshness + engagement + completionBonus + staticInterestBonus + affinityBonus + followBonus + jitter - negativePenalty;
+      return { dto, score };
+    });
+
+  if (scored.length === 0) return jsonOk({ videos: [], nextOffset: null, empty: true });
 
   scored.sort((a, b) => b.score - a.score);
   const pageSlice = scored.slice(offset, offset + PAGE_SIZE);

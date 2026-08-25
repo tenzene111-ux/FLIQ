@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, UserPlus } from "lucide-react";
 import { FliqMark } from "@/components/ui/FliqLogo";
 import { VideoCard } from "@/components/feed/VideoCard";
+import { LiveFeedCard, type LiveFeedItem } from "@/components/feed/LiveFeedCard";
 import { FeedItemSkeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -13,14 +14,47 @@ import { RightRail } from "@/components/layout/RightRail";
 import { useFeed } from "@/hooks/useFeed";
 import { useUnreadCounts } from "@/hooks/useUnreadCounts";
 import { cn } from "@/lib/utils";
+import type { VideoDTO } from "@/types/models";
+
+const LIVE_INSERT_INTERVAL = 5; // one LIVE card per this many video posts
+
+type FeedItem = { kind: "video"; video: VideoDTO } | { kind: "live"; stream: LiveFeedItem };
 
 export function FeedShell() {
   const [tab, setTab] = useState<"foryou" | "following">("foryou");
-  const { videos, loading, error, empty, loadMore, reload } = useFeed(tab);
+  const { videos, loading, error, empty, loadMore, reload, removeVideo } = useFeed(tab);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [liveStreams, setLiveStreams] = useState<LiveFeedItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
   const { notifications } = useUnreadCounts();
+
+  useEffect(() => {
+    if (tab !== "foryou") return;
+    fetch("/api/live")
+      .then((r) => r.json())
+      .then((d) => setLiveStreams(d.streams || []))
+      .catch(() => {});
+  }, [tab]);
+
+  // LIVE never interrupts the core feed — it's inserted as occasional
+  // recommendation cards among the ranked posts, cycling through active
+  // streams rather than repeating the same one.
+  const items = useMemo<FeedItem[]>(() => {
+    if (tab !== "foryou" || liveStreams.length === 0) {
+      return videos.map((video) => ({ kind: "video", video }) as const);
+    }
+    const result: FeedItem[] = [];
+    let liveIdx = 0;
+    videos.forEach((video, i) => {
+      result.push({ kind: "video", video });
+      if ((i + 1) % LIVE_INSERT_INTERVAL === 0 && liveIdx < liveStreams.length) {
+        result.push({ kind: "live", stream: liveStreams[liveIdx] });
+        liveIdx++;
+      }
+    });
+    return result;
+  }, [videos, liveStreams, tab]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -32,7 +66,7 @@ export function FeedShell() {
           if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
             const idx = Number((entry.target as HTMLElement).dataset.index);
             setActiveIndex(idx);
-            if (idx >= videos.length - 2) loadMore();
+            if (idx >= items.length - 3) loadMore();
           }
         });
       },
@@ -42,7 +76,7 @@ export function FeedShell() {
     itemRefs.current.forEach((el) => el && observer.observe(el));
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videos.length]);
+  }, [items.length]);
 
   return (
     <div className="relative w-full h-[100dvh] bg-background overflow-hidden flex justify-center">
@@ -79,16 +113,25 @@ export function FeedShell() {
         </div>
       ) : (
         <div ref={containerRef} className="h-full w-full overflow-y-scroll snap-y-feed no-scrollbar">
-          {videos.map((v, i) => (
+          {items.map((item, i) => (
             <div
-              key={v.id}
+              key={item.kind === "video" ? item.video.id : `live-${item.stream.id}`}
               ref={(el) => {
                 itemRefs.current[i] = el;
               }}
               data-index={i}
               className="h-[100dvh] w-full"
             >
-              <VideoCard video={v} isActive={i === activeIndex} />
+              {item.kind === "video" ? (
+                <VideoCard
+                  video={item.video}
+                  isActive={i === activeIndex}
+                  preload={i === activeIndex || i === activeIndex + 1}
+                  onNotInterested={removeVideo}
+                />
+              ) : (
+                <LiveFeedCard stream={item.stream} />
+              )}
             </div>
           ))}
         </div>

@@ -28,7 +28,17 @@ import { cn, formatCount } from "@/lib/utils";
 import type { VideoDTO } from "@/types/models";
 import { EyeOff, Flag, Info } from "lucide-react";
 
-export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: boolean }) {
+export function VideoCard({
+  video,
+  isActive,
+  preload,
+  onNotInterested,
+}: {
+  video: VideoDTO;
+  isActive: boolean;
+  preload?: boolean;
+  onNotInterested?: (id: string) => void;
+}) {
   const router = useRouter();
   const currentUser = useAuthStore((s) => s.user);
 
@@ -58,7 +68,6 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
   const [shareOpen, setShareOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [notInterested, setNotInterested] = useState(false);
 
   const isOwn = currentUser?.id === video.user.id;
   const watchStartRef = useRef<number>(0);
@@ -240,7 +249,7 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
           className="absolute inset-0 w-full h-full object-cover"
           loop
           playsInline
-          preload={isActive ? "auto" : "metadata"}
+          preload={isActive || preload ? "auto" : "metadata"}
           onTimeUpdate={handleTimeUpdate}
           onError={() => setErrored(true)}
           onClick={handleTap}
@@ -456,10 +465,11 @@ export function VideoCard({ video, isActive }: { video: VideoDTO; isActive: bool
           )}
           <MoreItem
             icon={EyeOff}
-            label={notInterested ? "Won't show less of this" : "Not interested"}
+            label="Not interested"
             onClick={() => {
-              setNotInterested((v) => !v);
               setMoreOpen(false);
+              fetch(`/api/videos/${video.id}/not-interested`, { method: "POST" }).catch(() => {});
+              onNotInterested?.(video.id);
               toast("info", "We'll show you less content like this");
             }}
           />
