@@ -207,7 +207,7 @@ export default function EditorPage() {
   function openSoundSheet() {
     setSheet("sound");
     if (!sounds) {
-      fetch("/api/discover")
+      fetch("/api/sounds")
         .then((r) => r.json())
         .then((d) => setSounds(d.sounds))
         .catch(() => setSounds([]));

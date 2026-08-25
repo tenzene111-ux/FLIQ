@@ -16,6 +16,7 @@ interface DiscoverData {
   hashtags: { tag: string; viewCount: number; videoCount: number; thumbnails: string[] }[];
   creators: { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean; bio: string; followerCount: number }[];
   categories: { slug: string; label: string; emoji: string; videoCount: number }[];
+  sounds: { id: string; title: string; artist: string; coverUrl: string; isOriginal: boolean; videoCount: number }[];
 }
 
 export default function DiscoverPage() {
@@ -100,6 +101,28 @@ export default function DiscoverPage() {
               ))}
             </div>
           </Section>
+
+          {/* Trending sounds */}
+          {data.sounds.length > 0 && (
+            <Section title="Trending Sounds" href="/discover/sounds">
+              <div className="flex flex-col divide-y divide-border rounded-2xl border border-border overflow-hidden">
+                {data.sounds.slice(0, 5).map((s) => (
+                  <Link key={s.id} href={`/sounds/${s.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-white/5">
+                    <div className="w-11 h-11 rounded-xl overflow-hidden shrink-0 bg-surface-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.coverUrl} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-semibold truncate">
+                        {s.isOriginal ? `original sound · ${s.artist}` : s.title}
+                      </p>
+                      <p className="text-muted-2 text-xs">{formatCount(s.videoCount)} videos</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Section>
+          )}
 
           {/* Top creators */}
           <Section title="Top Creators">

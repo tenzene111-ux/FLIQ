@@ -19,7 +19,7 @@ export const GET = withErrorHandling(async () => {
       },
       take: 30,
     }),
-    prisma.sound.findMany({ orderBy: { createdAt: "desc" }, take: 6 }),
+    prisma.sound.findMany({ include: { _count: { select: { videos: true } } }, orderBy: { videos: { _count: "desc" } }, take: 6 }),
   ]);
 
   const usersWithFollowers = await Promise.all(
@@ -66,6 +66,6 @@ export const GET = withErrorHandling(async () => {
       followerCount: u.followerCount,
     })),
     categories: categoriesWithCounts,
-    sounds: sounds.map(serializeSound),
+    sounds: sounds.map((s) => ({ ...serializeSound(s), videoCount: s._count.videos })),
   });
 });
