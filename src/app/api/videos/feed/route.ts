@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { jsonOk, withErrorHandling } from "@/lib/api";
 import { videoInclude, serializeVideo } from "@/lib/serialize";
 import { getFollowingIdSet } from "@/lib/social";
+import { getHashtagAffinity, diversifyByAuthor } from "@/lib/ranking";
 
 const PAGE_SIZE = 6;
 
@@ -47,6 +48,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   } catch {
     interests = [];
   }
+  const affinity = viewer ? await getHashtagAffinity(viewer.id) : new Map<string, number>();
 
   const daySeed = new Date().toISOString().slice(0, 10);
   const jitterSeed = `${viewer?.id ?? "anon"}-${daySeed}`;
@@ -69,15 +71,20 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       dto.counts.shares * 1.5 +
       dto.counts.saves * 1.0;
     const completionBonus = (v.analytics?.completionRate ?? 0.4) * 3000;
-    const interestBonus = dto.hashtags.some((h) => interests.includes(h)) ? 4000 : 0;
+    // Static onboarding interests give a flat bonus; real behavior (likes,
+    // completed watches) gives a scaled bonus once the viewer has any history,
+    // so the feed adapts to what they actually engage with over time.
+    const staticInterestBonus = dto.hashtags.some((h) => interests.includes(h)) ? 4000 : 0;
+    const affinityBonus = dto.hashtags.reduce((sum, h) => sum + (affinity.get(h) ?? 0), 0) * 250;
     const followBonus = dto.viewer.isFollowingAuthor ? 2500 : 0;
     const jitter = hashJitter(v.id) * 1500;
-    const score = freshness + engagement + completionBonus + interestBonus + followBonus + jitter;
+    const score = freshness + engagement + completionBonus + staticInterestBonus + affinityBonus + followBonus + jitter;
     return { dto, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
-  const page = scored.slice(offset, offset + PAGE_SIZE).map((s) => s.dto);
+  const pageSlice = scored.slice(offset, offset + PAGE_SIZE);
+  const page = diversifyByAuthor(pageSlice).map((s) => s.dto);
   const nextOffset = offset + PAGE_SIZE < scored.length ? offset + PAGE_SIZE : offset % scored.length; // loop with fresh jitter next round
 
   return jsonOk({ videos: page, nextOffset: page.length ? nextOffset : null });
