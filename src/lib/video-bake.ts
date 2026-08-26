@@ -62,7 +62,21 @@ function loadVideo(url: string): Promise<HTMLVideoElement> {
     el.volume = 0; // silence output while still producing an audio track for captureStream
     el.playsInline = true;
     el.crossOrigin = "anonymous";
-    el.onloadedmetadata = () => resolve(el);
+    el.onloadedmetadata = () => {
+      if (Number.isFinite(el.duration)) {
+        resolve(el);
+        return;
+      }
+      // Chromium reports duration as Infinity for a freshly-recorded
+      // MediaRecorder blob until you seek — seeking past the end forces it
+      // to resolve the real duration via a timeupdate event.
+      el.currentTime = 1e10;
+      el.ontimeupdate = () => {
+        el.ontimeupdate = null;
+        el.currentTime = 0;
+        resolve(el);
+      };
+    };
     el.onerror = () => reject(new Error("Couldn't load clip"));
   });
 }

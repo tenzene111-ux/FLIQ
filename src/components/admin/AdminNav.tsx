@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Video, Flag } from "lucide-react";
+import { LayoutDashboard, Users, Video, Flag, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const ITEMS = [
@@ -10,6 +10,7 @@ const ITEMS = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/videos", label: "Videos", icon: Video },
   { href: "/admin/reports", label: "Reports", icon: Flag },
+  { href: "/admin/create-funnel", label: "Create Funnel", icon: Wand2 },
 ];
 
 export function AdminNav({ horizontal }: { horizontal?: boolean }) {

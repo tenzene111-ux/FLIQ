@@ -30,5 +30,12 @@ export const POST = withAuth<{ id: string }>(async (req, { user, params }) => {
     emoji: parsed.data.emoji,
   });
 
+  await prisma.liveStream
+    .update({
+      where: { id: params.id },
+      data: parsed.data.type === "reaction" ? { reactionCount: { increment: 1 } } : { chatCount: { increment: 1 } },
+    })
+    .catch(() => {});
+
   return jsonOk({ event }, 201);
 });

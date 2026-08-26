@@ -207,7 +207,7 @@ export function VideoCard({
 
   function doRepost() {
     requireAuth(() => {
-      if (!video.allowDuet) {
+      if (!video.allowReuse) {
         toast("info", "The creator has turned off reposts for this video");
         return;
       }

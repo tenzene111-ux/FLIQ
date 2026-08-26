@@ -29,6 +29,10 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "@/store/toast";
 import { cn, formatDuration } from "@/lib/utils";
 import { nanoid } from "nanoid";
+import { useAuthStore } from "@/store/auth";
+import { uploadVideoDraft } from "@/lib/save-draft";
+import { trackCreateEvent } from "@/lib/create-events";
+import { DraftExitSheet } from "@/components/create/DraftExitSheet";
 
 const STICKER_EMOJIS = ["🔥", "✨", "💯", "😂", "❤️", "👀", "🎉", "😎", "🙌", "💃", "🎶", "⚡", "🌟", "😭", "🥳", "👍"];
 const EXPORT_RES = [
@@ -46,6 +50,7 @@ interface Snapshot {
 export default function EditorPage() {
   const router = useRouter();
   const draft = useCreateDraftStore();
+  const user = useAuthStore((s) => s.user);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [clipIndex, setClipIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -55,6 +60,8 @@ export default function EditorPage() {
   const [duration, setDuration] = useState(0);
   const [baking, setBaking] = useState(false);
   const [bakeProgress, setBakeProgress] = useState(0);
+  const [exitOpen, setExitOpen] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [captionsOn, setCaptionsOn] = useState(false);
   const [recordingVoiceover, setRecordingVoiceover] = useState(false);
   const [voiceoverBlob, setVoiceoverBlob] = useState<Blob | null>(null);
@@ -71,10 +78,55 @@ export default function EditorPage() {
 
   useEffect(() => {
     if (draft.clips.length === 0) {
-      router.replace("/create");
+      router.replace("/create/video");
+      return;
     }
+    trackCreateEvent("EDITOR_OPENED");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function saveDraftAndExit() {
+    setSavingDraft(true);
+    try {
+      const filterCss = buildFilterCss(draft.filterId, draft.beauty);
+      const clipsForBake = draft.clips.map((c, i) => ({
+        url: c.url,
+        trimStart: isSingleClip && i === 0 ? trimStart : undefined,
+        trimEnd: isSingleClip && i === 0 ? trimEnd : undefined,
+      }));
+      const result = await bakeVideo({
+        clips: clipsForBake,
+        speed: draft.speed,
+        filterCss,
+        muteOriginal: draft.muteOriginal,
+        transition: draft.transition,
+        voiceoverBlob,
+        textLayers: draft.textLayers,
+        stickerLayers: draft.stickerLayers,
+        zoom: draft.zoom,
+      });
+      await uploadVideoDraft(result.blob, {
+        duration: result.duration || draft.clips.reduce((s, c) => s + c.duration, 0),
+        soundId: draft.soundId,
+      });
+      trackCreateEvent("DRAFT_SAVED", { from: "editor" });
+      toast("success", "Saved to your drafts");
+      draft.reset();
+      router.push(`/profile/${user?.username}`);
+    } catch {
+      toast("error", "Couldn't save that draft");
+    } finally {
+      setSavingDraft(false);
+      setExitOpen(false);
+    }
+  }
+
+  function discardAndExit() {
+    trackCreateEvent("POST_CANCELLED", { from: "editor" });
+    draft.reset();
+    setExitOpen(false);
+    router.push("/home");
+  }
 
   const clip = draft.clips[clipIndex];
   const isSingleClip = draft.clips.length === 1;
@@ -151,12 +203,14 @@ export default function EditorPage() {
     if (!text.trim()) return;
     snapshot();
     draft.addTextLayer({ id: nanoid(6), text: text.trim(), x: 50, y: 50, color: "#ffffff" });
+    trackCreateEvent("TEXT_ADDED");
     setSheet(null);
   }
 
   function addSticker(emoji: string) {
     snapshot();
     draft.addStickerLayer({ id: nanoid(6), emoji, x: 50, y: 40 });
+    trackCreateEvent("STICKER_ADDED");
     setSheet(null);
   }
 
@@ -289,7 +343,7 @@ export default function EditorPage() {
   return (
     <div className="fixed inset-0 bg-black flex flex-col z-50">
       <div className="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),14px)] pb-2 shrink-0">
-        <button onClick={() => router.back()} className="text-white" aria-label="Back">
+        <button onClick={() => setExitOpen(true)} className="text-white" aria-label="Back">
           <ArrowLeft size={22} />
         </button>
         <div className="flex items-center gap-3">
@@ -398,6 +452,7 @@ export default function EditorPage() {
               step={0.1}
               value={trimStart}
               onChange={(e) => setTrimStart(Math.min(Number(e.target.value), trimEnd - 0.5))}
+              onPointerUp={() => trackCreateEvent("VIDEO_TRIMMED")}
               className="flex-1 accent-fliq-magenta"
               aria-label="Trim start"
             />
@@ -408,6 +463,7 @@ export default function EditorPage() {
               step={0.1}
               value={trimEnd}
               onChange={(e) => setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.5))}
+              onPointerUp={() => trackCreateEvent("VIDEO_TRIMMED")}
               className="flex-1 accent-fliq-cyan"
               aria-label="Trim end"
             />
@@ -463,6 +519,7 @@ export default function EditorPage() {
               key={s.id}
               onClick={() => {
                 draft.setSound(s.id, `${s.title} · ${s.artist}`);
+                trackCreateEvent("SOUND_SELECTED");
                 setSheet(null);
               }}
               className={cn("w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5", draft.soundId === s.id && "bg-white/5")}
@@ -498,7 +555,14 @@ export default function EditorPage() {
       <Sheet open={sheet === "filters"} onClose={() => setSheet(null)} title="Filters">
         <div className="flex gap-3 px-4 pb-4 overflow-x-auto no-scrollbar">
           {FILTER_PRESETS.map((f) => (
-            <button key={f.id} onClick={() => draft.setFilterId(f.id)} className="flex flex-col items-center gap-1.5 shrink-0">
+            <button
+              key={f.id}
+              onClick={() => {
+                draft.setFilterId(f.id);
+                if (f.id !== "none") trackCreateEvent("FILTER_USED", { filter: f.id });
+              }}
+              className="flex flex-col items-center gap-1.5 shrink-0"
+            >
               <span
                 className={cn("w-14 h-14 rounded-xl bg-gradient-brand-diag border-2", draft.filterId === f.id ? "border-white" : "border-transparent")}
                 style={{ filter: f.css || undefined }}
@@ -581,6 +645,8 @@ export default function EditorPage() {
           <p className="text-white text-sm">Processing your video... {Math.round(bakeProgress)}%</p>
         </div>
       )}
+
+      <DraftExitSheet open={exitOpen} onClose={() => setExitOpen(false)} onSave={saveDraftAndExit} onDiscard={discardAndExit} saving={savingDraft} kind="video" />
     </div>
   );
 }

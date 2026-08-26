@@ -19,6 +19,8 @@ export const POST = withAuth(async (req, { user }) => {
   const allowComments = form.get("allowComments") !== "false";
   const allowDuet = form.get("allowDuet") !== "false";
   const allowDownload = form.get("allowDownload") !== "false";
+  const allowSoundReuse = form.get("allowSoundReuse") !== "false";
+  const allowReuse = form.get("allowReuse") !== "false";
   const soundId = form.get("soundId") ? String(form.get("soundId")) : null;
   const cover = form.get("cover") ? String(form.get("cover")) : null;
   const status = String(form.get("status")) === "draft" ? "draft" : "published";
@@ -70,7 +72,8 @@ export const POST = withAuth(async (req, { user }) => {
     const ext = file.type.includes("mp4") ? "mp4" : "webm";
     const uploaded = await getStorage().upload(buffer, { folder: "videos", ext, contentType: file.type || "video/webm" });
     videoUrl = uploaded.url;
-    duration = Math.max(1, Math.round(Number(form.get("duration")) || 15));
+    const rawDuration = Number(form.get("duration"));
+    duration = Number.isFinite(rawDuration) && rawDuration > 0 ? Math.max(1, Math.round(rawDuration)) : 15;
   }
 
   const video = await prisma.video.create({
@@ -86,6 +89,8 @@ export const POST = withAuth(async (req, { user }) => {
       allowComments,
       allowDuet,
       allowDownload,
+      allowSoundReuse,
+      allowReuse,
       soundId: soundId || undefined,
       status,
       duetOfId,
@@ -115,6 +120,30 @@ export const POST = withAuth(async (req, { user }) => {
     }
   }
 
+  // Exposes this video's own audio as a reusable Fliq sound (unless the
+  // creator already picked one from the library, or opted out). The audio
+  // track plays back fine through an <audio> element even though the file
+  // is the whole video container — no separate extraction step needed.
+  let finalVideo = video;
+  if (status === "published" && postType === "video" && !soundId && allowSoundReuse && video.videoUrl) {
+    const originalSound = await prisma.sound.create({
+      data: {
+        title: "original sound",
+        artist: user.displayName,
+        coverUrl: video.thumbnailUrl,
+        audioUrl: video.videoUrl,
+        duration: video.duration,
+        isOriginal: true,
+        ownerId: user.id,
+      },
+    });
+    finalVideo = await prisma.video.update({
+      where: { id: video.id },
+      data: { soundId: originalSound.id },
+      include: videoInclude(user.id),
+    });
+  }
+
   const followingIds = await getFollowingIdSet(user.id);
-  return jsonOk({ video: serializeVideo(video, followingIds) }, 201);
+  return jsonOk({ video: serializeVideo(finalVideo, followingIds) }, 201);
 });

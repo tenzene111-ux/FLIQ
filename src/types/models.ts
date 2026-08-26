@@ -32,6 +32,8 @@ export interface VideoDTO {
   allowComments: boolean;
   allowDuet: boolean;
   allowDownload: boolean;
+  allowSoundReuse: boolean;
+  allowReuse: boolean;
   location: string | null;
   status: string;
   createdAt: string;

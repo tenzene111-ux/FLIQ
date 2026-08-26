@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState, use as usePromise } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { X, Heart, Send, Share2, Radio, Video as VideoIcon } from "lucide-react";
+import { X, Heart, Send, Share2, Radio, Video as VideoIcon, Users, MessageCircle, Clock } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useCameraRecorder } from "@/hooks/useCameraRecorder";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/store/toast";
-import { formatCount } from "@/lib/utils";
+import { formatCount, formatDuration } from "@/lib/utils";
 
 interface StreamInfo {
   id: string;
@@ -45,6 +45,9 @@ export default function LiveViewPage({ params }: { params: Promise<{ id: string 
   const [floatingHearts, setFloatingHearts] = useState<number[]>([]);
   const [text, setText] = useState("");
   const [ended, setEnded] = useState(false);
+  const [summary, setSummary] = useState<{ durationSec: number; peakViewerCount: number; totalViewers: number; chatCount: number; reactionCount: number } | null>(
+    null
+  );
   const lastEventId = useRef<string | null>(null);
   const joinedRef = useRef(false);
 
@@ -136,10 +139,11 @@ export default function LiveViewPage({ params }: { params: Promise<{ id: string 
   }
 
   async function endLive() {
-    await fetch(`/api/live/${id}/end`, { method: "POST" }).catch(() => {});
+    const res = await fetch(`/api/live/${id}/end`, { method: "POST" }).catch(() => null);
+    const data = await res?.json().catch(() => null);
     setEnded(true);
+    setSummary(data?.summary ?? null);
     toast("success", "Live ended");
-    setTimeout(() => router.push("/live"), 1200);
   }
 
   if (error) {
@@ -152,9 +156,25 @@ export default function LiveViewPage({ params }: { params: Promise<{ id: string 
 
   if (ended) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center gap-2 text-center px-8">
-        <Radio size={32} className="text-muted-2" />
-        <p className="text-white font-semibold">Live ended</p>
+      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center gap-6 text-center px-8">
+        <div className="flex flex-col items-center gap-2">
+          <Radio size={32} className="text-muted-2" />
+          <p className="text-white font-semibold text-lg">Live ended</p>
+          <p className="text-muted-2 text-xs">
+            Live video streaming isn&apos;t recorded — there&apos;s no replay to save, since Fliq LIVE doesn&apos;t run a media server in this environment.
+          </p>
+        </div>
+
+        {summary && (
+          <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
+            <SummaryStat icon={Clock} label="Duration" value={formatDuration(summary.durationSec)} />
+            <SummaryStat icon={Users} label="Peak viewers" value={formatCount(summary.peakViewerCount)} />
+            <SummaryStat icon={Users} label="Total viewers" value={formatCount(summary.totalViewers)} />
+            <SummaryStat icon={MessageCircle} label="Chat + reactions" value={formatCount(summary.chatCount + summary.reactionCount)} />
+          </div>
+        )}
+
+        <Button onClick={() => router.push("/live")}>Done</Button>
       </div>
     );
   }
@@ -257,6 +277,16 @@ export default function LiveViewPage({ params }: { params: Promise<{ id: string 
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SummaryStat({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 flex flex-col items-center gap-1">
+      <Icon size={16} className="text-muted-2" />
+      <span className="text-white font-bold text-base">{value}</span>
+      <span className="text-muted-2 text-[10px]">{label}</span>
     </div>
   );
 }

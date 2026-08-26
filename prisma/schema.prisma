@@ -68,6 +68,7 @@ model User {
   sounds            Sound[]
   liveStreams       LiveStream[]
   messageReactions  MessageReaction[]
+  createEvents      CreateEvent[]
 
   @@index([username])
 }
@@ -141,6 +142,8 @@ model Video {
   allowComments  Boolean  @default(true)
   allowDuet      Boolean  @default(true)
   allowDownload  Boolean  @default(true)
+  allowSoundReuse Boolean @default(true)
+  allowReuse     Boolean  @default(true)
   location       String?
   soundId        String?
   status         String   @default("published") // published | processing | removed | draft
@@ -454,17 +457,34 @@ model StoryView {
 // ---------------------------------------------------------------------------
 
 model LiveStream {
-  id           String    @id @default(cuid())
-  userId       String
-  title        String
-  category     String
-  status       String    @default("live") // live | ended
-  viewerCount  Int       @default(0)
-  commentsOn   Boolean   @default(true)
-  startedAt    DateTime  @default(now())
-  endedAt      DateTime?
+  id              String    @id @default(cuid())
+  userId          String
+  title           String
+  category        String
+  status          String    @default("live") // live | ended
+  viewerCount     Int       @default(0)
+  peakViewerCount Int       @default(0)
+  totalViewers    Int       @default(0)
+  chatCount       Int       @default(0)
+  reactionCount   Int       @default(0)
+  commentsOn      Boolean   @default(true)
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreateEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  type      String
+  meta      String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([createdAt])
 }
 
 // ---------------------------------------------------------------------------

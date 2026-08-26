@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { toast } from "@/store/toast";
 import { extractHashtags, extractMentions, cn } from "@/lib/utils";
+import { trackCreateEvent } from "@/lib/create-events";
 import type { VideoDTO } from "@/types/models";
 
 const PRIVACY_OPTIONS = [
@@ -32,6 +33,8 @@ function PostPageInner() {
   const [allowComments, setAllowComments] = useState(true);
   const [allowDuet, setAllowDuet] = useState(true);
   const [allowDownload, setAllowDownload] = useState(true);
+  const [allowSoundReuse, setAllowSoundReuse] = useState(true);
+  const [allowReuse, setAllowReuse] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +56,8 @@ function PostPageInner() {
           setAllowComments(d.video.allowComments);
           setAllowDuet(d.video.allowDuet);
           setAllowDownload(d.video.allowDownload);
+          setAllowSoundReuse(d.video.allowSoundReuse);
+          setAllowReuse(d.video.allowReuse);
         })
         .catch(() => {
           toast("error", "Couldn't load that draft");
@@ -74,6 +79,7 @@ function PostPageInner() {
   const mentions = extractMentions(caption);
 
   async function handlePost(saveAsDraft: boolean) {
+    if (!saveAsDraft) trackCreateEvent("POST_STARTED");
     setUploading(true);
     setError(null);
     setProgress(0);
@@ -89,11 +95,14 @@ function PostPageInner() {
             allowComments,
             allowDuet,
             allowDownload,
+            allowSoundReuse,
+            allowReuse,
             status: saveAsDraft ? "draft" : "published",
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Couldn't save");
+        if (!saveAsDraft) trackCreateEvent("POST_PUBLISHED");
         toast("success", saveAsDraft ? "Draft saved" : "Posted to Fliq!");
         router.push(`/profile/${user?.username}`);
         return;
@@ -117,6 +126,8 @@ function PostPageInner() {
       form.append("allowComments", String(allowComments));
       form.append("allowDuet", String(allowDuet));
       form.append("allowDownload", String(allowDownload));
+      form.append("allowSoundReuse", String(allowSoundReuse));
+      form.append("allowReuse", String(allowReuse));
       form.append("status", saveAsDraft ? "draft" : "published");
       if (draft.soundId) form.append("soundId", draft.soundId);
 
@@ -141,10 +152,12 @@ function PostPageInner() {
         xhr.send(form);
       });
 
+      if (!saveAsDraft) trackCreateEvent("POST_PUBLISHED");
       toast("success", saveAsDraft ? "Saved to your drafts" : "Posted to Fliq!");
       draft.reset();
       router.push(`/profile/${user?.username}`);
     } catch (err) {
+      if (!saveAsDraft) trackCreateEvent("POST_FAILED");
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setUploading(false);
@@ -308,8 +321,10 @@ function PostPageInner() {
 
       <div className="px-4 mt-6 flex flex-col gap-4">
         <ToggleRow label="Allow comments" value={allowComments} onChange={setAllowComments} />
-        <ToggleRow label="Allow duet & repost" value={allowDuet} onChange={setAllowDuet} />
+        <ToggleRow label="Allow duet" value={allowDuet} onChange={setAllowDuet} />
         <ToggleRow label="Allow downloads" value={allowDownload} onChange={setAllowDownload} />
+        <ToggleRow label="Allow content reuse (repost)" value={allowReuse} onChange={setAllowReuse} />
+        {!isPhotoPost && <ToggleRow label="Allow sound reuse" value={allowSoundReuse} onChange={setAllowSoundReuse} />}
       </div>
 
       {error && (

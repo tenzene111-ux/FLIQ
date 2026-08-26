@@ -50,7 +50,7 @@ export default function SoundPage({ params }: { params: Promise<{ id: string }> 
 
   function useSound() {
     if (!sound) return;
-    router.push(`/create?soundId=${sound.id}&soundLabel=${encodeURIComponent(`${sound.title} · ${sound.artist}`)}`);
+    router.push(`/create/video?soundId=${sound.id}&soundLabel=${encodeURIComponent(`${sound.title} · ${sound.artist}`)}`);
   }
 
   async function shareSound() {

@@ -73,7 +73,7 @@ export default function TrendingSoundsPage() {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => router.push(`/create?soundId=${s.id}&soundLabel=${encodeURIComponent(`${s.title} · ${s.artist}`)}`)}
+                onClick={() => router.push(`/create/video?soundId=${s.id}&soundLabel=${encodeURIComponent(`${s.title} · ${s.artist}`)}`)}
               >
                 Use
               </Button>

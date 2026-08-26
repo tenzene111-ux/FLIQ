@@ -7,8 +7,23 @@ export const POST = withAuth<{ id: string }>(async (_req, { user, params }) => {
   if (!stream) return jsonError("Live stream not found", 404);
   if (stream.userId !== user.id) return jsonError("Only the host can end this live", 403);
 
-  await prisma.liveStream.update({ where: { id: stream.id }, data: { status: "ended", endedAt: new Date() } });
+  const endedAt = new Date();
+  const updated = await prisma.liveStream.update({
+    where: { id: stream.id },
+    data: { status: "ended", endedAt },
+  });
   clearLiveEvents(stream.id);
 
-  return jsonOk({ ok: true });
+  const durationSec = Math.max(0, Math.round((endedAt.getTime() - stream.startedAt.getTime()) / 1000));
+
+  return jsonOk({
+    ok: true,
+    summary: {
+      durationSec,
+      peakViewerCount: updated.peakViewerCount,
+      totalViewers: updated.totalViewers,
+      chatCount: updated.chatCount,
+      reactionCount: updated.reactionCount,
+    },
+  });
 });

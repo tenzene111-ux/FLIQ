@@ -6,15 +6,22 @@ import { ArrowLeft, ImagePlus, X } from "lucide-react";
 import { useCreateDraftStore } from "@/store/create-draft";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/store/toast";
+import { uploadPhotoDraft } from "@/lib/save-draft";
+import { trackCreateEvent } from "@/lib/create-events";
+import { DraftExitSheet } from "@/components/create/DraftExitSheet";
+import { useAuthStore } from "@/store/auth";
 
 const MAX_PHOTOS = 10;
 
 export default function PhotosPickerPage() {
   const router = useRouter();
   const draft = useCreateDraftStore();
+  const user = useAuthStore((s) => s.user);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [exitOpen, setExitOpen] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
 
   useEffect(() => {
     draft.reset();
@@ -50,10 +57,39 @@ export default function PhotosPickerPage() {
     router.push("/create/post");
   }
 
+  function requestBack() {
+    if (files.length > 0) {
+      setExitOpen(true);
+    } else {
+      router.back();
+    }
+  }
+
+  async function saveDraftAndExit() {
+    setSavingDraft(true);
+    try {
+      await uploadPhotoDraft(files);
+      trackCreateEvent("DRAFT_SAVED", { from: "photos" });
+      toast("success", "Saved to your drafts");
+      router.push(`/profile/${user?.username}`);
+    } catch {
+      toast("error", "Couldn't save that draft");
+    } finally {
+      setSavingDraft(false);
+      setExitOpen(false);
+    }
+  }
+
+  function discardAndExit() {
+    trackCreateEvent("POST_CANCELLED", { from: "photos" });
+    setExitOpen(false);
+    router.push("/home");
+  }
+
   return (
     <div className="min-h-screen bg-background pb-8">
       <div className="flex items-center gap-3 px-4 pt-[max(env(safe-area-inset-top),16px)] pb-3">
-        <button onClick={() => router.back()} className="text-white" aria-label="Back">
+        <button onClick={requestBack} className="text-white" aria-label="Back">
           <ArrowLeft size={22} />
         </button>
         <h1 className="text-white font-semibold text-base">New photo post</h1>
@@ -100,6 +136,8 @@ export default function PhotosPickerPage() {
           Next
         </Button>
       </div>
+
+      <DraftExitSheet open={exitOpen} onClose={() => setExitOpen(false)} onSave={saveDraftAndExit} onDiscard={discardAndExit} saving={savingDraft} kind="photos" />
     </div>
   );
 }

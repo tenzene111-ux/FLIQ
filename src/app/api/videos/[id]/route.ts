@@ -46,6 +46,8 @@ export const PATCH = withAuth<{ id: string }>(async (req: NextRequest, { user, p
   const allowComments = typeof body.allowComments === "boolean" ? body.allowComments : existing.allowComments;
   const allowDuet = typeof body.allowDuet === "boolean" ? body.allowDuet : existing.allowDuet;
   const allowDownload = typeof body.allowDownload === "boolean" ? body.allowDownload : existing.allowDownload;
+  const allowSoundReuse = typeof body.allowSoundReuse === "boolean" ? body.allowSoundReuse : existing.allowSoundReuse;
+  const allowReuse = typeof body.allowReuse === "boolean" ? body.allowReuse : existing.allowReuse;
   const publish = body.status === "published";
 
   const hashtagTags = extractHashtags(caption);
@@ -60,6 +62,8 @@ export const PATCH = withAuth<{ id: string }>(async (req: NextRequest, { user, p
       allowComments,
       allowDuet,
       allowDownload,
+      allowSoundReuse,
+      allowReuse,
       status: publish ? "published" : "draft",
       hashtags: {
         create: await Promise.all(
@@ -88,6 +92,26 @@ export const PATCH = withAuth<{ id: string }>(async (req: NextRequest, { user, p
     }
   }
 
+  let finalVideo = video;
+  if (publish && video.postType === "video" && !video.soundId && allowSoundReuse && video.videoUrl) {
+    const originalSound = await prisma.sound.create({
+      data: {
+        title: "original sound",
+        artist: user.displayName,
+        coverUrl: video.thumbnailUrl,
+        audioUrl: video.videoUrl,
+        duration: video.duration,
+        isOriginal: true,
+        ownerId: user.id,
+      },
+    });
+    finalVideo = await prisma.video.update({
+      where: { id: video.id },
+      data: { soundId: originalSound.id },
+      include: videoInclude(user.id),
+    });
+  }
+
   const followingIds = await getFollowingIdSet(user.id);
-  return jsonOk({ video: serializeVideo(video, followingIds) });
+  return jsonOk({ video: serializeVideo(finalVideo, followingIds) });
 });
