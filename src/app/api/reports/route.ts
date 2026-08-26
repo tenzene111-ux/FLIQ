@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { withAuth, jsonError, jsonOk } from "@/lib/api";
+import { logLiveEvent } from "@/lib/live-events";
 
 const schema = z.object({
-  targetType: z.enum(["video", "user", "comment", "message"]),
+  targetType: z.enum(["video", "user", "comment", "message", "live", "live_comment"]),
   targetId: z.string(),
   reason: z.enum(["spam", "harassment", "violence", "hate", "sexual", "dangerous", "copyright", "scam", "other"]),
   details: z.string().max(500).optional(),
@@ -25,8 +26,14 @@ export const POST = withAuth(async (req, { user }) => {
       reportedUserId: targetType === "user" ? targetId : undefined,
       commentId: targetType === "comment" ? targetId : undefined,
       messageId: targetType === "message" ? targetId : undefined,
+      liveStreamId: targetType === "live" ? targetId : undefined,
+      liveCommentId: targetType === "live_comment" ? targetId : undefined,
     },
   });
+
+  if (targetType === "live") {
+    await logLiveEvent(targetId, "LIVE_REPORTED", user.id);
+  }
 
   return jsonOk({ ok: true });
 });

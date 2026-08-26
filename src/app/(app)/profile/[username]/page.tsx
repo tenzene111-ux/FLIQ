@@ -25,6 +25,10 @@ import {
   FileEdit,
   Folder,
   Plus,
+  Radio,
+  CalendarClock,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Avatar } from "@/components/ui/Avatar";
@@ -80,6 +84,9 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [pickerVideoId, setPickerVideoId] = useState<string | null>(null);
   const [newCollectionName, setNewCollectionName] = useState<string | null>(null);
+  const [liveId, setLiveId] = useState<string | null>(null);
+  const [scheduledLive, setScheduledLive] = useState<{ id: string; title: string; scheduledFor: string } | null>(null);
+  const [reminding, setReminding] = useState(false);
 
   function loadProfile() {
     setError(false);
@@ -92,8 +99,18 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         setUser(d.user);
         setStats(d.stats);
         setFollowStatus(d.followStatus);
+        setLiveId(d.liveId);
+        setScheduledLive(d.scheduledLive);
       })
       .catch(() => setError(true));
+  }
+
+  async function toggleReminder() {
+    if (!scheduledLive) return;
+    const next = !reminding;
+    setReminding(next);
+    await fetch(`/api/live/${scheduledLive.id}/remind`, { method: next ? "POST" : "DELETE" }).catch(() => {});
+    toast("success", next ? "We'll remind you when it starts" : "Reminder removed");
   }
 
   useEffect(loadProfile, [username]);
@@ -264,9 +281,41 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       ) : (
         <>
           <div className="flex flex-col items-center px-4 text-center">
-            <Avatar src={user.avatarUrl} alt={user.displayName} size="2xl" ring verified={user.isVerified} />
+            {liveId ? (
+              <Link href={`/live/${liveId}`} className="relative">
+                <span className="absolute inset-0 rounded-full ring-2 ring-danger animate-pulse" />
+                <Avatar src={user.avatarUrl} alt={user.displayName} size="2xl" verified={user.isVerified} />
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-danger text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 whitespace-nowrap">
+                  <Radio size={9} /> LIVE
+                </span>
+              </Link>
+            ) : (
+              <Avatar src={user.avatarUrl} alt={user.displayName} size="2xl" ring verified={user.isVerified} />
+            )}
             <h1 className="text-white text-xl font-bold mt-3">{user.displayName}</h1>
             <p className="text-muted text-sm">@{user.username}</p>
+            {scheduledLive && (
+              <div className="mt-3 w-full max-w-xs rounded-xl border border-border bg-surface-2 px-3 py-2.5 flex items-center gap-2.5 text-left">
+                <span className="w-8 h-8 rounded-full bg-fliq-magenta/15 flex items-center justify-center shrink-0">
+                  <CalendarClock size={15} className="text-fliq-magenta" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white text-xs font-semibold truncate">{scheduledLive.title}</p>
+                  <p className="text-muted-2 text-[11px]">
+                    {new Date(scheduledLive.scheduledFor).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  </p>
+                </div>
+                {!user.isOwn && (
+                  <button
+                    onClick={toggleReminder}
+                    aria-label={reminding ? "Remove reminder" : "Remind me"}
+                    className="shrink-0 w-8 h-8 rounded-full bg-surface-3 flex items-center justify-center text-white"
+                  >
+                    {reminding ? <BellOff size={14} /> : <Bell size={14} />}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center gap-6 mt-4">
               <button onClick={() => setFollowSheet("following")} className="text-center">

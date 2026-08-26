@@ -16,91 +16,98 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model User {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  username          String   @unique
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
   passwordHash      String?
-  googleId          String?  @unique
-  appleId           String?  @unique
+  googleId          String?   @unique
+  appleId           String?   @unique
   displayName       String
-  bio               String   @default("")
+  bio               String    @default("")
   avatarUrl         String?
   website           String?
   location          String?
-  genderVisible     Boolean  @default(false)
+  genderVisible     Boolean   @default(false)
   gender            String?
-  isVerified        Boolean  @default(false)
-  isCreator         Boolean  @default(true)
-  isAdmin           Boolean  @default(false)
-  isPrivate         Boolean  @default(false)
-  status            String   @default("active") // active | suspended | banned | deactivated
-  emailVerified     Boolean  @default(false)
+  isVerified        Boolean   @default(false)
+  isCreator         Boolean   @default(true)
+  isAdmin           Boolean   @default(false)
+  isPrivate         Boolean   @default(false)
+  status            String    @default("active") // active | suspended | banned | deactivated
+  emailVerified     Boolean   @default(false)
   emailVerifyToken  String?
   resetToken        String?
   resetTokenExpires DateTime?
-  interests         String   @default("[]") // JSON array of category slugs
+  interests         String    @default("[]") // JSON array of category slugs
   usernameChangedAt DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  videos            Video[]
-  videoViews        VideoView[]
-  likes             Like[]
-  comments          Comment[]
-  commentLikes      CommentLike[]
-  shares            Share[]
-  saves             Save[]
-  reposts           Repost[]
-  following         Follow[]      @relation("follower")
-  followers         Follow[]      @relation("following")
-  sentMessages      Message[]     @relation("sender")
+  videos             Video[]
+  videoViews         VideoView[]
+  likes              Like[]
+  comments           Comment[]
+  commentLikes       CommentLike[]
+  shares             Share[]
+  saves              Save[]
+  reposts            Repost[]
+  following          Follow[]                  @relation("follower")
+  followers          Follow[]                  @relation("following")
+  sentMessages       Message[]                 @relation("sender")
   conversations      ConversationParticipant[]
-  notificationsRecv Notification[] @relation("recipient")
-  notificationsActor Notification[] @relation("actor")
-  stories           Story[]
-  storyViews        StoryView[]
-  reportsFiled      Report[]      @relation("reporter")
-  reportsAgainst    Report[]      @relation("reportedUser")
-  blockedBy         BlockedUser[] @relation("blocker")
-  blocking          BlockedUser[] @relation("blocked")
-  settings          UserSettings?
-  analytics         CreatorAnalytics?
-  notInterested     NotInterested[]
-  sounds            Sound[]
-  liveStreams       LiveStream[]
-  messageReactions  MessageReaction[]
-  createEvents      CreateEvent[]
-  sharedInMessages  Message[] @relation("sharedProfileMessages")
-  muting            MutedUser[] @relation("muter")
-  mutedBy           MutedUser[] @relation("mutedBy")
-  restricting       RestrictedUser[] @relation("restricter")
-  restrictedBy      RestrictedUser[] @relation("restrictedBy")
-  collections       Collection[]
+  notificationsRecv  Notification[]            @relation("recipient")
+  notificationsActor Notification[]            @relation("actor")
+  stories            Story[]
+  storyViews         StoryView[]
+  reportsFiled       Report[]                  @relation("reporter")
+  reportsAgainst     Report[]                  @relation("reportedUser")
+  blockedBy          BlockedUser[]             @relation("blocker")
+  blocking           BlockedUser[]             @relation("blocked")
+  settings           UserSettings?
+  analytics          CreatorAnalytics?
+  notInterested      NotInterested[]
+  sounds             Sound[]
+  liveStreams        LiveStream[]
+  messageReactions   MessageReaction[]
+  createEvents       CreateEvent[]
+  sharedInMessages   Message[]                 @relation("sharedProfileMessages")
+  muting             MutedUser[]               @relation("muter")
+  mutedBy            MutedUser[]               @relation("mutedBy")
+  restricting        RestrictedUser[]          @relation("restricter")
+  restrictedBy       RestrictedUser[]          @relation("restrictedBy")
+  collections        Collection[]
+  liveParticipations LiveParticipant[]         @relation("liveParticipant")
+  liveModeratorRoles LiveModerator[]           @relation("liveModerator")
+  liveEvents         LiveEvent[]
+  wallet             UserWallet?
+  giftsSent          GiftTransaction[]         @relation("giftSender")
+  giftsReceived      GiftTransaction[]         @relation("giftRecipient")
 
   @@index([username])
 }
 
 model UserSettings {
-  id                  String  @id @default(cuid())
-  userId              String  @unique
-  user                User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  privateAccount      Boolean @default(false)
-  allowComments       Boolean @default(true)
-  allowDuet           Boolean @default(true)
-  allowDownloads      Boolean @default(true)
-  allowMessagesFrom   String  @default("everyone") // everyone | followers | none
-  showActivityStatus  Boolean @default(true)
-  readReceipts        Boolean @default(true)
-  pushLikes           Boolean @default(true)
-  pushComments        Boolean @default(true)
-  pushFollowers       Boolean @default(true)
-  pushMentions        Boolean @default(true)
-  pushMessages        Boolean @default(true)
-  emailNotifications  Boolean @default(false)
-  language            String  @default("en")
-  reducedMotion       Boolean @default(false)
-  theme               String  @default("dark")
-  keywordFilters      String  @default("[]") // JSON array of blocked keywords/hashtags
+  id                 String  @id @default(cuid())
+  userId             String  @unique
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  privateAccount     Boolean @default(false)
+  allowComments      Boolean @default(true)
+  allowDuet          Boolean @default(true)
+  allowDownloads     Boolean @default(true)
+  allowMessagesFrom  String  @default("everyone") // everyone | followers | none
+  showActivityStatus Boolean @default(true)
+  readReceipts       Boolean @default(true)
+  pushLikes          Boolean @default(true)
+  pushComments       Boolean @default(true)
+  pushFollowers      Boolean @default(true)
+  pushMentions       Boolean @default(true)
+  pushMessages       Boolean @default(true)
+  pushLive           Boolean @default(true)
+  emailNotifications Boolean @default(false)
+  language           String  @default("en")
+  reducedMotion      Boolean @default(false)
+  theme              String  @default("dark")
+  keywordFilters     String  @default("[]") // JSON array of blocked keywords/hashtags
 }
 
 // ---------------------------------------------------------------------------
@@ -190,48 +197,48 @@ model BlockedUser {
 // ---------------------------------------------------------------------------
 
 model Video {
-  id             String   @id @default(cuid())
-  userId         String
-  caption        String   @default("")
-  postType       String   @default("video") // video | photo
-  videoUrl       String?
-  thumbnailUrl   String
-  duration       Int      @default(15) // seconds
-  aspectRatio    String   @default("9:16")
-  privacy        String   @default("everyone") // everyone | followers | onlyMe
-  allowComments  Boolean  @default(true)
-  allowDuet      Boolean  @default(true)
-  allowDownload  Boolean  @default(true)
-  allowSoundReuse Boolean @default(true)
-  allowReuse     Boolean  @default(true)
-  location       String?
-  soundId        String?
-  status         String   @default("published") // published | processing | removed | draft
-  isRepostOfId   String?
-  duetOfId       String?
-  isPinned       Boolean  @default(false)
-  pinnedAt       DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String    @id @default(cuid())
+  userId          String
+  caption         String    @default("")
+  postType        String    @default("video") // video | photo
+  videoUrl        String?
+  thumbnailUrl    String
+  duration        Int       @default(15) // seconds
+  aspectRatio     String    @default("9:16")
+  privacy         String    @default("everyone") // everyone | followers | onlyMe
+  allowComments   Boolean   @default(true)
+  allowDuet       Boolean   @default(true)
+  allowDownload   Boolean   @default(true)
+  allowSoundReuse Boolean   @default(true)
+  allowReuse      Boolean   @default(true)
+  location        String?
+  soundId         String?
+  status          String    @default("published") // published | processing | removed | draft
+  isRepostOfId    String?
+  duetOfId        String?
+  isPinned        Boolean   @default(false)
+  pinnedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sound        Sound?          @relation(fields: [soundId], references: [id])
-  duetOf       Video?          @relation("VideoDuets", fields: [duetOfId], references: [id], onDelete: SetNull)
-  duets        Video[]         @relation("VideoDuets")
-  photos       PostPhoto[]
-  hashtags     VideoHashtag[]
-  views        VideoView[]
-  likes        Like[]
-  comments     Comment[]
-  shares       Share[]
-  saves        Save[]
-  reposts      Repost[]
-  notifications Notification[]
-  analytics    VideoAnalytics?
-  reports      Report[]
-  notInterested NotInterested[]
-  sharedInMessages Message[] @relation("sharedVideoMessages")
-  collectionItems CollectionItem[]
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sound            Sound?           @relation(fields: [soundId], references: [id])
+  duetOf           Video?           @relation("VideoDuets", fields: [duetOfId], references: [id], onDelete: SetNull)
+  duets            Video[]          @relation("VideoDuets")
+  photos           PostPhoto[]
+  hashtags         VideoHashtag[]
+  views            VideoView[]
+  likes            Like[]
+  comments         Comment[]
+  shares           Share[]
+  saves            Save[]
+  reposts          Repost[]
+  notifications    Notification[]
+  analytics        VideoAnalytics?
+  reports          Report[]
+  notInterested    NotInterested[]
+  sharedInMessages Message[]        @relation("sharedVideoMessages")
+  collectionItems  CollectionItem[]
 
   @@index([userId])
   @@index([createdAt])
@@ -290,21 +297,21 @@ model Like {
 }
 
 model Comment {
-  id           String   @id @default(cuid())
-  videoId      String
-  userId       String
-  parentId     String?
-  text         String
-  isPinned     Boolean  @default(false)
-  isDeleted    Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  id        String   @id @default(cuid())
+  videoId   String
+  userId    String
+  parentId  String?
+  text      String
+  isPinned  Boolean  @default(false)
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  video    Video         @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent   Comment?      @relation("replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies  Comment[]     @relation("replies")
-  likes    CommentLike[]
-  reports  Report[]
+  video   Video         @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?      @relation("replies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies Comment[]     @relation("replies")
+  likes   CommentLike[]
+  reports Report[]
 
   @@index([videoId])
   @@index([parentId])
@@ -370,7 +377,7 @@ model Hashtag {
   viewCount Int      @default(0)
   createdAt DateTime @default(now())
 
-  videos VideoHashtag[]
+  videos           VideoHashtag[]
   sharedInMessages Message[]
 }
 
@@ -397,8 +404,8 @@ model Sound {
   ownerId    String?
   createdAt  DateTime @default(now())
 
-  owner  User?          @relation(fields: [ownerId], references: [id])
-  videos Video[]
+  owner            User?     @relation(fields: [ownerId], references: [id])
+  videos           Video[]
   sharedInMessages Message[]
 
   @@index([title])
@@ -430,27 +437,27 @@ model ConversationParticipant {
   isRequest      Boolean  @default(false)
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, userId])
   @@index([userId])
 }
 
 model Message {
-  id             String   @id @default(cuid())
-  conversationId String
-  senderId       String
-  type           String   @default("text") // text | image | video | audio | gif | post | profile | hashtag | sound | live
-  text           String?
-  mediaUrl       String?
-  replyToId      String?
-  sharedVideoId  String?
-  sharedUserId   String?
+  id              String   @id @default(cuid())
+  conversationId  String
+  senderId        String
+  type            String   @default("text") // text | image | video | audio | gif | post | profile | hashtag | sound | live
+  text            String?
+  mediaUrl        String?
+  replyToId       String?
+  sharedVideoId   String?
+  sharedUserId    String?
   sharedHashtagId String?
-  sharedSoundId  String?
-  sharedLiveId   String?
-  isDeleted      Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  sharedSoundId   String?
+  sharedLiveId    String?
+  isDeleted       Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   conversation  Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender        User              @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
@@ -485,18 +492,20 @@ model MessageReaction {
 // ---------------------------------------------------------------------------
 
 model Notification {
-  id          String   @id @default(cuid())
-  recipientId String
-  actorId     String?
-  type        String   // like | comment | follow | mention | share | system
-  videoId     String?
-  commentText String?
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  recipientId  String
+  actorId      String?
+  type         String // like | comment | follow | follow_request | mention | share | system | live | live_guest_invite
+  videoId      String?
+  liveStreamId String?
+  commentText  String?
+  isRead       Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
-  recipient User   @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade)
-  actor     User?  @relation("actor", fields: [actorId], references: [id], onDelete: Cascade)
-  video     Video? @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  recipient  User        @relation("recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor      User?       @relation("actor", fields: [actorId], references: [id], onDelete: Cascade)
+  video      Video?      @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  liveStream LiveStream? @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
 
   @@index([recipientId])
 }
@@ -540,19 +549,137 @@ model LiveStream {
   id              String    @id @default(cuid())
   userId          String
   title           String
+  description     String?
   category        String
-  status          String    @default("live") // live | ended
+  status          String    @default("live") // scheduled | live | ended
   viewerCount     Int       @default(0)
   peakViewerCount Int       @default(0)
   totalViewers    Int       @default(0)
   chatCount       Int       @default(0)
   reactionCount   Int       @default(0)
   commentsOn      Boolean   @default(true)
+  giftsEnabled    Boolean   @default(false)
+  guestsEnabled   Boolean   @default(false)
+  maxGuests       Int       @default(3)
+  blockedKeywords String    @default("[]") // JSON array, creator-configured chat filter
+  slowModeSeconds Int       @default(0) // 0 = off; minimum seconds between a viewer's chat messages
+  pinnedMessageId String? // ephemeral live-chat event id (chat isn't persisted)
+  coinsEarned     Int       @default(0) // aggregate gift earnings during this stream
+  scheduledFor    DateTime?
+  reminderCount   Int       @default(0)
   startedAt       DateTime  @default(now())
   endedAt         DateTime?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   sharedInMessages Message[]
+  participants     LiveParticipant[]
+  moderators       LiveModerator[]
+  events           LiveEvent[]
+  giftTransactions GiftTransaction[]
+  reports          Report[]
+  notifications    Notification[]
+  reminders        LiveReminder[]
+
+  @@index([status])
+  @@index([scheduledFor])
+}
+
+model LiveParticipant {
+  id           String    @id @default(cuid())
+  liveStreamId String
+  userId       String
+  role         String    @default("co-host") // co-host
+  status       String    @default("invited") // invited | accepted | declined | removed | left
+  mutedByHost  Boolean   @default(false)
+  invitedAt    DateTime  @default(now())
+  joinedAt     DateTime?
+  leftAt       DateTime?
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  user       User       @relation("liveParticipant", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([liveStreamId, userId])
+}
+
+model LiveModerator {
+  id           String   @id @default(cuid())
+  liveStreamId String
+  userId       String
+  permissions  String   @default("[\"delete\",\"mute\",\"pin\"]") // JSON array
+  assignedAt   DateTime @default(now())
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  user       User       @relation("liveModerator", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([liveStreamId, userId])
+}
+
+model LiveEvent {
+  id           String   @id @default(cuid())
+  liveStreamId String
+  userId       String?
+  eventType    String // LIVE_STARTED | LIVE_VIEWER_JOINED | LIVE_VIEWER_LEFT | LIVE_COMMENT | LIVE_REACTION | LIVE_FOLLOW | LIVE_SHARE | LIVE_GIFT | LIVE_GUEST_INVITED | LIVE_GUEST_JOINED | LIVE_GUEST_LEFT | LIVE_RECONNECT | LIVE_REPORTED | LIVE_ENDED
+  meta         String?
+  createdAt    DateTime @default(now())
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([liveStreamId])
+  @@index([eventType])
+}
+
+model LiveReminder {
+  id           String   @id @default(cuid())
+  liveStreamId String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  liveStream LiveStream @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
+
+  @@unique([liveStreamId, userId])
+}
+
+// ---------------------------------------------------------------------------
+// Virtual gifts (closed-loop demo currency — no real payment processor)
+// ---------------------------------------------------------------------------
+
+model Gift {
+  id        String   @id @default(cuid())
+  name      String
+  emoji     String
+  coinCost  Int
+  createdAt DateTime @default(now())
+
+  transactions GiftTransaction[]
+}
+
+model UserWallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  balance   Int      @default(500) // starter coins granted when the wallet row is first created — closed-loop, no real purchases
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GiftTransaction {
+  id           String   @id @default(cuid())
+  senderId     String
+  recipientId  String
+  liveStreamId String?
+  giftId       String
+  quantity     Int      @default(1)
+  coinAmount   Int
+  createdAt    DateTime @default(now())
+
+  sender     User        @relation("giftSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient  User        @relation("giftRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  liveStream LiveStream? @relation(fields: [liveStreamId], references: [id], onDelete: SetNull)
+  gift       Gift        @relation(fields: [giftId], references: [id], onDelete: Restrict)
+
+  @@index([recipientId])
+  @@index([liveStreamId])
 }
 
 model CreateEvent {
@@ -573,24 +700,27 @@ model CreateEvent {
 // ---------------------------------------------------------------------------
 
 model Report {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   reporterId     String
   reportedUserId String?
   videoId        String?
   commentId      String?
   messageId      String?
-  targetType     String   // video | user | comment | message
-  reason         String   // spam | harassment | violence | hate | sexual | dangerous | copyright | scam | other
+  liveStreamId   String?
+  liveCommentId  String? // ephemeral live-chat event id — live chat isn't persisted, so no FK
+  targetType     String // video | user | comment | message | live | live_comment
+  reason         String // spam | harassment | violence | hate | sexual | dangerous | copyright | scam | other
   details        String?
-  status         String   @default("pending") // pending | reviewing | resolved
-  createdAt      DateTime @default(now())
+  status         String    @default("pending") // pending | reviewing | resolved
+  createdAt      DateTime  @default(now())
   resolvedAt     DateTime?
 
-  reporter     User     @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
-  reportedUser User?    @relation("reportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
-  video        Video?   @relation(fields: [videoId], references: [id], onDelete: Cascade)
-  comment      Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  message      Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter     User        @relation("reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUser User?       @relation("reportedUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  video        Video?      @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  comment      Comment?    @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  message      Message?    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  liveStream   LiveStream? @relation(fields: [liveStreamId], references: [id], onDelete: Cascade)
 
   @@index([status])
 }

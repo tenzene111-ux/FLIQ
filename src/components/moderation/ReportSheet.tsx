@@ -15,7 +15,7 @@ export function ReportSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  targetType: "video" | "user" | "comment" | "message";
+  targetType: "video" | "user" | "comment" | "message" | "live" | "live_comment";
   targetId: string;
 }) {
   const [reason, setReason] = useState<string | null>(null);

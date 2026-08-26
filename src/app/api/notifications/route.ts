@@ -13,6 +13,7 @@ const TAB_TYPES: Record<string, string[] | undefined> = {
 
 type Actor = { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean } | null;
 type VideoBrief = { id: string; thumbnailUrl: string; caption: string } | null;
+type LiveBrief = { id: string; status: string } | null;
 
 interface GroupedLike {
   id: string;
@@ -24,6 +25,7 @@ interface GroupedLike {
   secondActor: Actor;
   othersCount: number;
   video: VideoBrief;
+  liveStream: null;
   actorIds: Set<string>;
 }
 
@@ -37,6 +39,7 @@ interface PlainItem {
   secondActor: null;
   othersCount: number;
   video: VideoBrief;
+  liveStream: LiveBrief;
 }
 
 export const GET = withAuth(async (req: NextRequest, { user }) => {
@@ -48,6 +51,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
     include: {
       actor: { select: PUBLIC_USER_SELECT },
       video: { select: { id: true, thumbnailUrl: true, caption: true } },
+      liveStream: { select: { id: true, status: true } },
     },
     orderBy: { createdAt: "desc" },
     take: 200,
@@ -81,6 +85,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         secondActor: null,
         othersCount: 0,
         video: n.video,
+        liveStream: null,
         actorIds: new Set(n.actorId ? [n.actorId] : []),
       });
       items.push(likeGroups.get(n.videoId)!);
@@ -95,6 +100,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         secondActor: null,
         othersCount: 0,
         video: n.video,
+        liveStream: n.liveStream,
       });
     }
   }

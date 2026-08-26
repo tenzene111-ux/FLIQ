@@ -11,11 +11,22 @@ export const GET = withErrorHandling<{ username: string }>(async (_req, { params
   if (!target) return jsonError("User not found", 404);
 
   const viewer = await getCurrentUser();
-  const [stats, followStatus] = await Promise.all([getProfileStats(target.id), getFollowStatus(viewer?.id, target.id)]);
+  const [stats, followStatus, liveStream, scheduledLive] = await Promise.all([
+    getProfileStats(target.id),
+    getFollowStatus(viewer?.id, target.id),
+    prisma.liveStream.findFirst({ where: { userId: target.id, status: "live" }, select: { id: true } }),
+    prisma.liveStream.findFirst({
+      where: { userId: target.id, status: "scheduled", scheduledFor: { gte: new Date() } },
+      orderBy: { scheduledFor: "asc" },
+      select: { id: true, title: true, scheduledFor: true },
+    }),
+  ]);
 
   return jsonOk({
     user: { ...target, isOwn: viewer?.id === target.id },
     stats,
     followStatus,
+    liveId: liveStream?.id ?? null,
+    scheduledLive,
   });
 });

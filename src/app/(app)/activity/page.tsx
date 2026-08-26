@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, Heart, MessageCircle, UserPlus, Share2, AtSign, Sparkles } from "lucide-react";
+import { Bell, Heart, MessageCircle, UserPlus, Share2, AtSign, Sparkles, Radio, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -31,6 +31,7 @@ interface NotificationItem {
   secondActor: { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean } | null;
   othersCount: number;
   video: { id: string; thumbnailUrl: string; caption: string } | null;
+  liveStream: { id: string; status: string } | null;
 }
 
 export default function ActivityPage() {
@@ -67,6 +68,15 @@ export default function ActivityPage() {
     await fetch(`/api/users/me/follow-requests/${username}`, { method: accept ? "POST" : "DELETE" }).catch(() => {});
   }
 
+  async function respondToGuestInvite(id: string, liveId: string, accept: boolean) {
+    setItems((prev) => prev?.filter((n) => n.id !== id) ?? null);
+    await fetch(`/api/live/${liveId}/guests/respond`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accept }),
+    }).catch(() => {});
+  }
+
   function iconFor(type: string) {
     switch (type) {
       case "like":
@@ -80,6 +90,10 @@ export default function ActivityPage() {
         return Share2;
       case "mention":
         return AtSign;
+      case "live":
+        return Radio;
+      case "live_guest_invite":
+        return Users;
       default:
         return Sparkles;
     }
@@ -99,6 +113,10 @@ export default function ActivityPage() {
         return "shared your video.";
       case "mention":
         return `mentioned you: ${n.commentText ?? ""}`;
+      case "live":
+        return "is live now.";
+      case "live_guest_invite":
+        return "invited you to co-host their LIVE.";
       default:
         return null;
     }
@@ -125,6 +143,7 @@ export default function ActivityPage() {
 
   function hrefFor(n: NotificationItem) {
     if (n.video) return `/video/${n.video.id}`;
+    if (n.liveStream) return `/live/${n.liveStream.id}`;
     if ((n.type === "follow" || n.type === "follow_request") && n.actor) return `/profile/${n.actor.username}`;
     return "#";
   }
@@ -199,6 +218,29 @@ export default function ActivityPage() {
                       onClick={(e) => {
                         e.preventDefault();
                         respondToRequest(n.id, n.actor!.username, false);
+                      }}
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                )}
+                {n.type === "live_guest_invite" && n.liveStream && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        respondToGuestInvite(n.id, n.liveStream!.id, true);
+                      }}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        respondToGuestInvite(n.id, n.liveStream!.id, false);
                       }}
                     >
                       Decline

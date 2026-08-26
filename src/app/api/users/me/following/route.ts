@@ -4,7 +4,7 @@ import { PUBLIC_USER_SELECT } from "@/lib/auth";
 
 export const GET = withAuth(async (_req, { user }) => {
   const rows = await prisma.follow.findMany({
-    where: { followerId: user.id },
+    where: { followerId: user.id, status: "accepted" },
     include: { following: { select: PUBLIC_USER_SELECT } },
     orderBy: { createdAt: "desc" },
     take: 50,
