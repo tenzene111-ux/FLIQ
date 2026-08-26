@@ -2,12 +2,13 @@
 
 import { useEffect, useState, use as usePromise } from "react";
 import Link from "next/link";
-import { ArrowLeft, Hash } from "lucide-react";
+import { ArrowLeft, Hash, Share2 } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import { VideoGridSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { ShareMenuSheet } from "@/components/share/ShareMenuSheet";
 import { formatCount, cn } from "@/lib/utils";
 import type { VideoDTO } from "@/types/models";
 
@@ -17,6 +18,7 @@ export default function HashtagPage({ params }: { params: Promise<{ tag: string 
   const [info, setInfo] = useState<{ tag: string; viewCount: number; videoCount: number } | null>(null);
   const [videos, setVideos] = useState<VideoDTO[] | null>(null);
   const [error, setError] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   function load() {
     setError(false);
@@ -36,10 +38,13 @@ export default function HashtagPage({ params }: { params: Promise<{ tag: string 
 
   return (
     <PageContainer className="max-w-2xl mx-auto w-full safe-top">
-      <div className="flex items-center gap-3 px-4 pt-5 pb-3">
+      <div className="flex items-center justify-between px-4 pt-5 pb-3">
         <Link href="/discover" className="text-white" aria-label="Back">
           <ArrowLeft size={22} />
         </Link>
+        <button onClick={() => setShareOpen(true)} className="text-white" aria-label="Share hashtag">
+          <Share2 size={20} />
+        </button>
       </div>
 
       {error ? (
@@ -79,6 +84,14 @@ export default function HashtagPage({ params }: { params: Promise<{ tag: string 
           )}
         </>
       )}
+      <ShareMenuSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        kind="hashtag"
+        id={tag}
+        url={`${typeof window !== "undefined" ? window.location.origin : ""}/discover/hashtag/${tag}`}
+        title="Share hashtag"
+      />
     </PageContainer>
   );
 }

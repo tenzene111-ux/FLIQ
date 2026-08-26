@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ListRowSkeleton } from "@/components/ui/Skeleton";
-import { formatTimeAgo, cn } from "@/lib/utils";
+import { formatTimeAgo, formatCount, cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth";
 
 type Tab = "all" | "likes" | "comments" | "followers" | "mentions";
@@ -28,6 +28,8 @@ interface NotificationItem {
   createdAt: string;
   commentText: string | null;
   actor: { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean } | null;
+  secondActor: { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean } | null;
+  othersCount: number;
   video: { id: string; thumbnailUrl: string; caption: string } | null;
 }
 
@@ -94,6 +96,25 @@ export default function ActivityPage() {
     }
   }
 
+  function namesFor(n: NotificationItem) {
+    const first = n.actor?.displayName ?? "Fliq";
+    if (n.type !== "like" || (!n.secondActor && n.othersCount === 0)) return <span className="font-semibold">{first}</span>;
+    if (!n.secondActor) return <span className="font-semibold">{first}</span>;
+    return (
+      <>
+        <span className="font-semibold">{first}</span>
+        {n.othersCount > 0 ? ", " : " and "}
+        <span className="font-semibold">{n.secondActor.displayName}</span>
+        {n.othersCount > 0 && (
+          <>
+            {" "}
+            and <span className="font-semibold">{formatCount(n.othersCount)} {n.othersCount === 1 ? "other" : "others"}</span>
+          </>
+        )}
+      </>
+    );
+  }
+
   function hrefFor(n: NotificationItem) {
     if (n.video) return `/video/${n.video.id}`;
     if (n.type === "follow" && n.actor) return `/profile/${n.actor.username}`;
@@ -145,8 +166,7 @@ export default function ActivityPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm leading-snug">
-                    <span className="font-semibold">{n.actor?.displayName ?? "Fliq"}</span>{" "}
-                    {actionFor(n) ?? "Welcome to Fliq! 🎉"}
+                    {namesFor(n)} {actionFor(n) ?? "Welcome to Fliq! 🎉"}
                   </p>
                   <p className="text-muted-2 text-xs mt-0.5">{formatTimeAgo(n.createdAt)}</p>
                 </div>

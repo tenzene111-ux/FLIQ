@@ -14,6 +14,7 @@ interface Settings {
   allowDownloads: boolean;
   allowMessagesFrom: "everyone" | "followers" | "none";
   showActivityStatus: boolean;
+  readReceipts: boolean;
 }
 
 export default function PrivacySettingsPage() {
@@ -56,6 +57,12 @@ export default function PrivacySettingsPage() {
         <Row label="Allow duet & repost" checked={settings.allowDuet} onChange={(v) => update({ allowDuet: v })} />
         <Row label="Allow video downloads" checked={settings.allowDownloads} onChange={(v) => update({ allowDownloads: v })} />
         <Row label="Show activity status" description="Let others see when you're online" checked={settings.showActivityStatus} onChange={(v) => update({ showActivityStatus: v })} />
+        <Row
+          label="Read receipts"
+          description="Let people see when you've read their messages (mutual — you won't see theirs either if this is off)"
+          checked={settings.readReceipts}
+          onChange={(v) => update({ readReceipts: v })}
+        />
 
         <div className="py-4">
           <p className="text-white text-sm mb-2">Who can message you</p>

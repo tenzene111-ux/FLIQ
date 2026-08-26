@@ -69,6 +69,7 @@ model User {
   liveStreams       LiveStream[]
   messageReactions  MessageReaction[]
   createEvents      CreateEvent[]
+  sharedInMessages  Message[] @relation("sharedProfileMessages")
 
   @@index([username])
 }
@@ -83,6 +84,7 @@ model UserSettings {
   allowDownloads      Boolean @default(true)
   allowMessagesFrom   String  @default("everyone") // everyone | followers | none
   showActivityStatus  Boolean @default(true)
+  readReceipts        Boolean @default(true)
   pushLikes           Boolean @default(true)
   pushComments        Boolean @default(true)
   pushFollowers       Boolean @default(true)
@@ -168,6 +170,7 @@ model Video {
   analytics    VideoAnalytics?
   reports      Report[]
   notInterested NotInterested[]
+  sharedInMessages Message[] @relation("sharedVideoMessages")
 
   @@index([userId])
   @@index([createdAt])
@@ -307,6 +310,7 @@ model Hashtag {
   createdAt DateTime @default(now())
 
   videos VideoHashtag[]
+  sharedInMessages Message[]
 }
 
 model VideoHashtag {
@@ -334,6 +338,7 @@ model Sound {
 
   owner  User?          @relation(fields: [ownerId], references: [id])
   videos Video[]
+  sharedInMessages Message[]
 
   @@index([title])
 }
@@ -345,6 +350,8 @@ model Sound {
 model Conversation {
   id        String   @id @default(cuid())
   isGroup   Boolean  @default(false)
+  name      String?
+  avatarUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -356,6 +363,8 @@ model ConversationParticipant {
   id             String   @id @default(cuid())
   conversationId String
   userId         String
+  role           String   @default("member") // owner | admin | member — group conversations only
+  muted          Boolean  @default(false)
   lastReadAt     DateTime @default(now())
   isRequest      Boolean  @default(false)
 
@@ -370,19 +379,29 @@ model Message {
   id             String   @id @default(cuid())
   conversationId String
   senderId       String
-  type           String   @default("text") // text | image | video | audio | gif
+  type           String   @default("text") // text | image | video | audio | gif | post | profile | hashtag | sound | live
   text           String?
   mediaUrl       String?
   replyToId      String?
+  sharedVideoId  String?
+  sharedUserId   String?
+  sharedHashtagId String?
+  sharedSoundId  String?
+  sharedLiveId   String?
   isDeleted      Boolean  @default(false)
   createdAt      DateTime @default(now())
 
-  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender       User              @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
-  replyTo      Message?          @relation("replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies      Message[]         @relation("replies")
-  reactions    MessageReaction[]
-  reports      Report[]
+  conversation  Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender        User              @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo       Message?          @relation("replies", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies       Message[]         @relation("replies")
+  reactions     MessageReaction[]
+  reports       Report[]
+  sharedVideo   Video?            @relation("sharedVideoMessages", fields: [sharedVideoId], references: [id], onDelete: SetNull)
+  sharedUser    User?             @relation("sharedProfileMessages", fields: [sharedUserId], references: [id], onDelete: SetNull)
+  sharedHashtag Hashtag?          @relation(fields: [sharedHashtagId], references: [id], onDelete: SetNull)
+  sharedSound   Sound?            @relation(fields: [sharedSoundId], references: [id], onDelete: SetNull)
+  sharedLive    LiveStream?       @relation(fields: [sharedLiveId], references: [id], onDelete: SetNull)
 
   @@index([conversationId])
 }
@@ -472,6 +491,7 @@ model LiveStream {
   endedAt         DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sharedInMessages Message[]
 }
 
 model CreateEvent {

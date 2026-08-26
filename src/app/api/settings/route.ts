@@ -18,6 +18,7 @@ const schema = z.object({
   allowDownloads: z.boolean().optional(),
   allowMessagesFrom: z.enum(["everyone", "followers", "none"]).optional(),
   showActivityStatus: z.boolean().optional(),
+  readReceipts: z.boolean().optional(),
   pushLikes: z.boolean().optional(),
   pushComments: z.boolean().optional(),
   pushFollowers: z.boolean().optional(),

@@ -30,6 +30,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { FollowListSheet } from "@/components/creator/FollowListSheet";
 import { ReportSheet } from "@/components/moderation/ReportSheet";
 import { Sheet } from "@/components/ui/Sheet";
+import { ShareMenuSheet } from "@/components/share/ShareMenuSheet";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/store/toast";
 import { formatCount, cn } from "@/lib/utils";
@@ -64,6 +65,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [followSheet, setFollowSheet] = useState<"followers" | "following" | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
 
   function loadProfile() {
@@ -108,16 +110,6 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     const data = await res.json();
     if (res.ok) router.push(`/inbox/${data.conversationId}`);
     else toast("error", data.error || "Couldn't start conversation");
-  }
-
-  async function shareProfile() {
-    const url = `${window.location.origin}/profile/${username}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("success", "Profile link copied");
-    } catch {
-      toast("info", url);
-    }
   }
 
   async function toggleBlock() {
@@ -170,7 +162,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             </>
           ) : (
             <>
-              <button onClick={shareProfile} className="text-white" aria-label="Share profile">
+              <button onClick={() => setShareOpen(true)} className="text-white" aria-label="Share profile">
                 <Share2 size={20} />
               </button>
               <button onClick={() => setMoreOpen(true)} className="text-white" aria-label="More options">
@@ -213,7 +205,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                       Edit Profile
                     </Button>
                   </Link>
-                  <Button variant="secondary" onClick={shareProfile} aria-label="Share profile">
+                  <Button variant="secondary" onClick={() => setShareOpen(true)} aria-label="Share profile">
                     <Share2 size={16} />
                   </Button>
                 </>
@@ -294,6 +286,14 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           <FollowListSheet open={followSheet === "followers"} onClose={() => setFollowSheet(null)} username={username} type="followers" title="Followers" />
           <FollowListSheet open={followSheet === "following"} onClose={() => setFollowSheet(null)} username={username} type="following" title="Following" />
           <ReportSheet open={reportOpen} onClose={() => setReportOpen(false)} targetType="user" targetId={user.id} />
+          <ShareMenuSheet
+            open={shareOpen}
+            onClose={() => setShareOpen(false)}
+            kind="profile"
+            id={user.id}
+            url={`${typeof window !== "undefined" ? window.location.origin : ""}/profile/${username}`}
+            title="Share profile"
+          />
           <Sheet open={moreOpen} onClose={() => setMoreOpen(false)}>
             <div className="px-2 pb-3">
               <button onClick={toggleBlock} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 text-left text-white">

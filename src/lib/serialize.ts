@@ -139,6 +139,11 @@ export function messageInclude() {
     sender: { select: publicUserSelect },
     reactions: { include: { user: { select: publicUserSelect } } },
     replyTo: { include: { sender: { select: publicUserSelect } } },
+    sharedVideo: { select: { id: true, thumbnailUrl: true, caption: true, postType: true, status: true, user: { select: publicUserSelect } } },
+    sharedUser: { select: publicUserSelect },
+    sharedHashtag: { select: { tag: true, viewCount: true } },
+    sharedSound: { select: { id: true, title: true, artist: true, coverUrl: true, isOriginal: true } },
+    sharedLive: { select: { id: true, title: true, status: true, viewerCount: true, user: { select: publicUserSelect } } },
   } satisfies Prisma.MessageInclude;
 }
 
@@ -155,6 +160,24 @@ export function serializeMessage(m: MessageWithRelations) {
     createdAt: m.createdAt.toISOString(),
     sender: serializeUserBrief(m.sender),
     reactions: m.reactions.map((r) => ({ emoji: r.emoji, user: serializeUserBrief(r.user) })),
+    sharedVideo: m.sharedVideo
+      ? {
+          id: m.sharedVideo.id,
+          thumbnailUrl: m.sharedVideo.thumbnailUrl,
+          caption: m.sharedVideo.caption,
+          postType: m.sharedVideo.postType,
+          isAvailable: m.sharedVideo.status === "published",
+          user: serializeUserBrief(m.sharedVideo.user),
+        }
+      : null,
+    sharedUser: m.sharedUser ? serializeUserBrief(m.sharedUser) : null,
+    sharedHashtag: m.sharedHashtag ? { tag: m.sharedHashtag.tag, viewCount: m.sharedHashtag.viewCount } : null,
+    sharedSound: m.sharedSound
+      ? { id: m.sharedSound.id, title: m.sharedSound.title, artist: m.sharedSound.artist, coverUrl: m.sharedSound.coverUrl, isOriginal: m.sharedSound.isOriginal }
+      : null,
+    sharedLive: m.sharedLive
+      ? { id: m.sharedLive.id, title: m.sharedLive.title, isLive: m.sharedLive.status === "live", viewerCount: m.sharedLive.viewerCount, user: serializeUserBrief(m.sharedLive.user) }
+      : null,
     replyTo: m.replyTo
       ? { id: m.replyTo.id, text: m.replyTo.isDeleted ? "Message deleted" : m.replyTo.text, sender: serializeUserBrief(m.replyTo.sender) }
       : null,

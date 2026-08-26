@@ -10,6 +10,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { useCameraRecorder } from "@/hooks/useCameraRecorder";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/store/toast";
+import { ShareMenuSheet } from "@/components/share/ShareMenuSheet";
 import { formatCount, formatDuration } from "@/lib/utils";
 
 interface StreamInfo {
@@ -45,6 +46,7 @@ export default function LiveViewPage({ params }: { params: Promise<{ id: string 
   const [floatingHearts, setFloatingHearts] = useState<number[]>([]);
   const [text, setText] = useState("");
   const [ended, setEnded] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [summary, setSummary] = useState<{ durationSec: number; peakViewerCount: number; totalViewers: number; chatCount: number; reactionCount: number } | null>(
     null
   );
@@ -128,16 +130,6 @@ export default function LiveViewPage({ params }: { params: Promise<{ id: string 
     }).catch(() => {});
   }
 
-  async function shareLive() {
-    const url = `${window.location.origin}/live/${id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("success", "Live link copied");
-    } catch {
-      toast("info", url);
-    }
-  }
-
   async function endLive() {
     const res = await fetch(`/api/live/${id}/end`, { method: "POST" }).catch(() => null);
     const data = await res?.json().catch(() => null);
@@ -213,7 +205,7 @@ export default function LiveViewPage({ params }: { params: Promise<{ id: string 
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={shareLive} aria-label="Share live" className="w-8 h-8 rounded-full bg-black/35 flex items-center justify-center text-white">
+          <button onClick={() => setShareOpen(true)} aria-label="Share live" className="w-8 h-8 rounded-full bg-black/35 flex items-center justify-center text-white">
             <Share2 size={15} />
           </button>
           <button
@@ -277,6 +269,16 @@ export default function LiveViewPage({ params }: { params: Promise<{ id: string 
           </div>
         )}
       </div>
+      {stream && (
+        <ShareMenuSheet
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          kind="live"
+          id={stream.id}
+          url={`${typeof window !== "undefined" ? window.location.origin : ""}/live/${id}`}
+          title="Share live"
+        />
+      )}
     </div>
   );
 }

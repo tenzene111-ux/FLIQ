@@ -9,6 +9,7 @@ import { VideoGrid } from "@/components/video/VideoGrid";
 import { VideoGridSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { ShareMenuSheet } from "@/components/share/ShareMenuSheet";
 import { formatCount, formatDuration } from "@/lib/utils";
 import { toast } from "@/store/toast";
 import type { VideoDTO } from "@/types/models";
@@ -31,6 +32,7 @@ export default function SoundPage({ params }: { params: Promise<{ id: string }> 
   const [videos, setVideos] = useState<VideoDTO[] | null>(null);
   const [error, setError] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   function load() {
     setError(false);
@@ -51,16 +53,6 @@ export default function SoundPage({ params }: { params: Promise<{ id: string }> 
   function useSound() {
     if (!sound) return;
     router.push(`/create/video?soundId=${sound.id}&soundLabel=${encodeURIComponent(`${sound.title} · ${sound.artist}`)}`);
-  }
-
-  async function shareSound() {
-    const url = `${window.location.origin}/sounds/${id}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast("success", "Sound link copied");
-    } catch {
-      toast("info", url);
-    }
   }
 
   if (error) {
@@ -112,7 +104,7 @@ export default function SoundPage({ params }: { params: Promise<{ id: string }> 
             >
               <Bookmark size={15} className={saved ? "fill-white" : undefined} />
             </Button>
-            <Button variant="secondary" onClick={shareSound}>
+            <Button variant="secondary" onClick={() => setShareOpen(true)}>
               <Share2 size={15} />
             </Button>
           </div>
@@ -130,6 +122,14 @@ export default function SoundPage({ params }: { params: Promise<{ id: string }> 
           )}
         </>
       )}
+      <ShareMenuSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        kind="sound"
+        id={id}
+        url={`${typeof window !== "undefined" ? window.location.origin : ""}/sounds/${id}`}
+        title="Share sound"
+      />
     </PageContainer>
   );
 }

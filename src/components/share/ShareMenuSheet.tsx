@@ -1,68 +1,45 @@
 "use client";
 
 import { useState } from "react";
+import { Link2, Send } from "lucide-react";
 import { Sheet } from "@/components/ui/Sheet";
-import { SendToSheet } from "@/components/share/SendToSheet";
+import { SendToSheet, type ShareKind } from "@/components/share/SendToSheet";
 import { toast } from "@/store/toast";
-import { Link2, Send, Share2 } from "lucide-react";
 
-export function ShareSheet({
-  videoId,
+/** Copy-link + "Send to..." menu for sharing a profile, hashtag, sound, or LIVE room. */
+export function ShareMenuSheet({
   open,
   onClose,
-  onShared,
+  kind,
+  id,
+  url,
+  title = "Share",
 }: {
-  videoId: string;
   open: boolean;
   onClose: () => void;
-  onShared?: () => void;
+  kind: ShareKind;
+  id: string;
+  url: string;
+  title?: string;
 }) {
   const [sendToOpen, setSendToOpen] = useState(false);
 
-  async function record(target: "link" | "external") {
-    await fetch(`/api/videos/${videoId}/share`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target }),
-    }).catch(() => {});
-    onShared?.();
-  }
-
   async function copyLink() {
-    const url = `${window.location.origin}/video/${videoId}`;
     try {
       await navigator.clipboard.writeText(url);
       toast("success", "Link copied to clipboard");
     } catch {
       toast("info", url);
     }
-    record("link");
-    onClose();
-  }
-
-  async function shareExternal() {
-    const url = `${window.location.origin}/video/${videoId}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ url, title: "Check this out on Fliq" });
-        record("external");
-      } catch {
-        // user cancelled the native share sheet — not an error
-      }
-    } else {
-      copyLink();
-      return;
-    }
     onClose();
   }
 
   return (
     <>
-      <Sheet open={open && !sendToOpen} onClose={onClose} title="Share">
-        <div className="px-4 pb-4 flex gap-4 overflow-x-auto no-scrollbar">
+      <Sheet open={open && !sendToOpen} onClose={onClose} title={title}>
+        <div className="px-4 pb-4 flex gap-4">
           <ShareAction icon={Send} label="Send to..." onClick={() => setSendToOpen(true)} />
           <ShareAction icon={Link2} label="Copy link" onClick={copyLink} />
-          <ShareAction icon={Share2} label="Share to..." onClick={shareExternal} />
         </div>
       </Sheet>
       <SendToSheet
@@ -71,8 +48,8 @@ export function ShareSheet({
           setSendToOpen(false);
           onClose();
         }}
-        kind="video"
-        id={videoId}
+        kind={kind}
+        id={id}
       />
     </>
   );

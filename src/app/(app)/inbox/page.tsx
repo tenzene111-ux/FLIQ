@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SquarePen, MessageCircle, Check, X as XIcon } from "lucide-react";
+import { SquarePen, MessageCircle, Users, Check, X as XIcon, ChevronLeft } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { StoryTray } from "@/components/stories/StoryTray";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -16,9 +18,13 @@ import { toast } from "@/store/toast";
 
 interface ConversationRow {
   id: string;
+  isGroup: boolean;
+  name: string | null;
+  avatarUrl: string | null;
+  memberCount: number | null;
   user: { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean } | null;
   online: boolean;
-  lastMessage: { text: string | null; type: string; createdAt: string; senderId: string } | null;
+  lastMessage: { text: string | null; type: string; createdAt: string; senderId: string; senderUsername: string } | null;
   unreadCount: number;
 }
 
@@ -100,17 +106,29 @@ export default function InboxPage() {
             <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/5">
               <Link href={`/inbox/${c.id}`} className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="relative shrink-0">
-                  <Avatar src={c.user?.avatarUrl} alt={c.user?.displayName ?? "User"} size="md" verified={c.user?.isVerified} />
-                  {c.online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success border-2 border-background" />}
+                  {c.isGroup ? (
+                    <div className="w-10 h-10 rounded-full bg-surface-3 flex items-center justify-center overflow-hidden">
+                      {c.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={c.avatarUrl} alt={c.name ?? "Group"} className="w-full h-full object-cover" />
+                      ) : (
+                        <Users size={18} className="text-muted-2" />
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <Avatar src={c.user?.avatarUrl} alt={c.user?.displayName ?? "User"} size="md" verified={c.user?.isVerified} />
+                      {c.online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success border-2 border-background" />}
+                    </>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-white text-sm font-semibold truncate">{c.user?.displayName}</p>
+                  <p className="text-white text-sm font-semibold truncate">
+                    {c.isGroup ? (c.name ?? "Group") : c.user?.displayName}
+                    {c.isGroup && <span className="text-muted-2 font-normal"> · {c.memberCount}</span>}
+                  </p>
                   <p className="text-muted-2 text-xs truncate">
-                    {c.lastMessage
-                      ? c.lastMessage.type === "text"
-                        ? c.lastMessage.text
-                        : `Sent ${c.lastMessage.type === "image" ? "a photo" : c.lastMessage.type === "video" ? "a video" : c.lastMessage.type === "audio" ? "a voice message" : "a gif"}`
-                      : "Say hi 👋"}
+                    {c.lastMessage ? lastMessagePreview(c.lastMessage, c.isGroup) : "Say hi 👋"}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
@@ -142,12 +160,21 @@ export default function InboxPage() {
   );
 }
 
+type Person = { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean };
+
 function NewMessageSheet({ open, onClose, onStart }: { open: boolean; onClose: () => void; onStart: (conversationId: string) => void }) {
-  const [users, setUsers] = useState<{ id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean }[] | null>(null);
+  const [mode, setMode] = useState<"pick" | "group">("pick");
+  const [users, setUsers] = useState<Person[] | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
+  const [groupSelected, setGroupSelected] = useState<Set<string>>(new Set());
+  const [groupName, setGroupName] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setMode("pick");
+    setGroupSelected(new Set());
+    setGroupName("");
     fetch("/api/users/me/following")
       .then((r) => r.json())
       .then((d) => setUsers(d.users))
@@ -169,21 +196,116 @@ function NewMessageSheet({ open, onClose, onStart }: { open: boolean; onClose: (
     }
   }
 
+  function toggleGroupMember(username: string) {
+    setGroupSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) next.delete(username);
+      else next.add(username);
+      return next;
+    });
+  }
+
+  async function createGroup() {
+    if (!groupName.trim() || groupSelected.size < 2) return;
+    setCreatingGroup(true);
+    try {
+      const res = await fetch("/api/conversations/group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: groupName.trim(), usernames: [...groupSelected] }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      onClose();
+      onStart(data.conversationId);
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Couldn't create group");
+    } finally {
+      setCreatingGroup(false);
+    }
+  }
+
   return (
-    <Sheet open={open} onClose={onClose} title="New message">
-      <div className="pb-4">
-        {users === null && <p className="text-center text-muted text-sm py-6">Loading...</p>}
-        {users?.length === 0 && <EmptyState icon={MessageCircle} title="Follow people to message them" className="py-8" />}
-        {users?.map((u) => (
-          <button key={u.id} onClick={() => start(u.username)} disabled={!!starting} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-left disabled:opacity-60">
-            <Avatar src={u.avatarUrl} alt={u.displayName} size="md" verified={u.isVerified} />
-            <div className="min-w-0">
-              <p className="text-white text-sm font-semibold truncate">{u.displayName}</p>
-              <p className="text-muted-2 text-xs truncate">@{u.username}</p>
-            </div>
+    <Sheet open={open} onClose={onClose} title={mode === "pick" ? "New message" : "New group"}>
+      {mode === "pick" ? (
+        <div className="pb-4">
+          <button onClick={() => setMode("group")} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-left">
+            <span className="w-10 h-10 rounded-full bg-gradient-brand-soft flex items-center justify-center text-fliq-cyan shrink-0">
+              <Users size={18} />
+            </span>
+            <p className="text-white text-sm font-semibold">New group</p>
           </button>
-        ))}
-      </div>
+          {users === null && <p className="text-center text-muted text-sm py-6">Loading...</p>}
+          {users?.length === 0 && <EmptyState icon={MessageCircle} title="Follow people to message them" className="py-8" />}
+          {users?.map((u) => (
+            <button key={u.id} onClick={() => start(u.username)} disabled={!!starting} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-left disabled:opacity-60">
+              <Avatar src={u.avatarUrl} alt={u.displayName} size="md" verified={u.isVerified} />
+              <div className="min-w-0">
+                <p className="text-white text-sm font-semibold truncate">{u.displayName}</p>
+                <p className="text-muted-2 text-xs truncate">@{u.username}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="pb-4">
+          <div className="px-4 flex items-center gap-2 mb-3">
+            <button onClick={() => setMode("pick")} aria-label="Back" className="text-white">
+              <ChevronLeft size={18} />
+            </button>
+            <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Group name" className="flex-1" />
+          </div>
+          <p className="px-4 text-xs text-muted mb-2">Add at least 2 people</p>
+          {users?.map((u) => {
+            const active = groupSelected.has(u.username);
+            return (
+              <button key={u.id} onClick={() => toggleGroupMember(u.username)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 text-left">
+                <Avatar src={u.avatarUrl} alt={u.displayName} size="md" verified={u.isVerified} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-white text-sm font-semibold truncate">{u.displayName}</p>
+                  <p className="text-muted-2 text-xs truncate">@{u.username}</p>
+                </div>
+                <span className={cn("w-5 h-5 rounded-full border flex items-center justify-center shrink-0", active ? "bg-fliq-magenta border-fliq-magenta" : "border-border")}>
+                  {active && <Check size={12} className="text-white" />}
+                </span>
+              </button>
+            );
+          })}
+          <div className="px-4 pt-3">
+            <Button fullWidth disabled={!groupName.trim() || groupSelected.size < 2} loading={creatingGroup} onClick={createGroup}>
+              Create group{groupSelected.size > 0 ? ` (${groupSelected.size})` : ""}
+            </Button>
+          </div>
+        </div>
+      )}
     </Sheet>
   );
+}
+
+function lastMessagePreview(m: { text: string | null; type: string; senderUsername: string }, isGroup: boolean): string {
+  const prefix = isGroup ? `${m.senderUsername}: ` : "";
+  switch (m.type) {
+    case "text":
+      return prefix + (m.text ?? "");
+    case "image":
+      return prefix + "Sent a photo";
+    case "video":
+      return prefix + "Sent a video";
+    case "audio":
+      return prefix + "Sent a voice message";
+    case "gif":
+      return prefix + "Sent a GIF";
+    case "post":
+      return prefix + "Shared a post";
+    case "profile":
+      return prefix + "Shared a profile";
+    case "hashtag":
+      return prefix + "Shared a hashtag";
+    case "sound":
+      return prefix + "Shared a sound";
+    case "live":
+      return prefix + "Shared a LIVE";
+    default:
+      return prefix + "Sent a message";
+  }
 }
