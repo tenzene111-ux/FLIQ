@@ -24,6 +24,16 @@ export function addRecentSearch(term: string) {
   }
 }
 
+export function removeRecentSearch(term: string) {
+  if (typeof window === "undefined") return;
+  const next = getRecentSearches().filter((t) => t.toLowerCase() !== term.toLowerCase());
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+}
+
 export function clearRecentSearches() {
   if (typeof window === "undefined") return;
   try {

@@ -279,7 +279,12 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
               }
             />
           ) : (
-            <VideoGrid videos={videos} linkBuilder={tab === "drafts" ? (v) => `/create/post?draftId=${v.id}` : undefined} />
+            <VideoGrid
+              videos={videos}
+              linkBuilder={
+                tab === "drafts" ? (v) => `/create/post?draftId=${v.id}` : (v) => `/video/${v.id}?context=profile&username=${username}&tab=${tab}`
+              }
+            />
           )}
         </>
       )}

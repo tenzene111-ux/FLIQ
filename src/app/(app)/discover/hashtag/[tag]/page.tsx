@@ -73,7 +73,7 @@ export default function HashtagPage({ params }: { params: Promise<{ tag: string 
           {videos && videos.length === 0 ? (
             <EmptyState icon={Hash} title="No videos yet" description="Be the first to post with this hashtag." />
           ) : videos ? (
-            <VideoGrid videos={videos} />
+            <VideoGrid videos={videos} linkBuilder={(v) => `/video/${v.id}?context=hashtag&tag=${encodeURIComponent(tag)}&sort=${sort}`} />
           ) : (
             <VideoGridSkeleton />
           )}

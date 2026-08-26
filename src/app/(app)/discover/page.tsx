@@ -19,9 +19,18 @@ interface DiscoverData {
   sounds: { id: string; title: string; artist: string; coverUrl: string; isOriginal: boolean; videoCount: number }[];
 }
 
+interface LiveStreamPreview {
+  id: string;
+  title: string;
+  category: string;
+  viewerCount: number;
+  user: { username: string; displayName: string; avatarUrl: string | null; isVerified: boolean };
+}
+
 export default function DiscoverPage() {
   const [data, setData] = useState<DiscoverData | null>(null);
   const [error, setError] = useState(false);
+  const [liveStreams, setLiveStreams] = useState<LiveStreamPreview[]>([]);
 
   function load() {
     setError(false);
@@ -33,6 +42,10 @@ export default function DiscoverPage() {
       })
       .then(setData)
       .catch(() => setError(true));
+    fetch("/api/live")
+      .then((r) => r.json())
+      .then((d) => setLiveStreams(d.streams || []))
+      .catch(() => {});
   }
 
   useEffect(load, []);
@@ -78,6 +91,28 @@ export default function DiscoverPage() {
               Join Now
             </span>
           </Link>
+
+          {/* LIVE now */}
+          {liveStreams.length > 0 && (
+            <Section title="LIVE Now" href="/live">
+              <div className="flex gap-4 overflow-x-auto no-scrollbar -mx-1 px-1">
+                {liveStreams.slice(0, 8).map((s) => (
+                  <Link key={s.id} href={`/live/${s.id}`} className="flex flex-col items-center gap-2 shrink-0 w-20 text-center">
+                    <div className="relative">
+                      <Avatar src={s.user.avatarUrl} alt={s.user.displayName} size="xl" ring verified={s.user.isVerified} />
+                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-danger text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
+                        <Radio size={8} /> LIVE
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white text-xs font-semibold truncate w-20">@{s.user.username}</p>
+                      <p className="text-muted-2 text-[11px]">{formatCount(s.viewerCount)} watching</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Section>
+          )}
 
           {/* Trending hashtags */}
           <Section title="Trending Hashtags" href="/discover/hashtags">

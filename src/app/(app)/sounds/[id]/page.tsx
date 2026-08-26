@@ -126,7 +126,7 @@ export default function SoundPage({ params }: { params: Promise<{ id: string }> 
           ) : videos.length === 0 ? (
             <EmptyState icon={Music2} title="No videos yet" description="Be the first to use this sound." />
           ) : (
-            <VideoGrid videos={videos} />
+            <VideoGrid videos={videos} linkBuilder={(v) => `/video/${v.id}?context=sound&soundId=${id}`} />
           )}
         </>
       )}

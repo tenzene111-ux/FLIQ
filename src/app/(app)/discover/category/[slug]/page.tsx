@@ -52,7 +52,7 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
       ) : videos.length === 0 ? (
         <EmptyState icon={ArrowLeft} title="No videos yet" description="Nothing in this category yet — check back soon." />
       ) : (
-        <VideoGrid videos={videos} />
+        <VideoGrid videos={videos} linkBuilder={(v) => `/video/${v.id}?context=category&slug=${slug}`} />
       )}
     </PageContainer>
   );

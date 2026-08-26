@@ -58,6 +58,25 @@ export async function getNegativeSignal(userId: string) {
   return { videoIds, hashtagPenalty, creatorPenalty };
 }
 
+/**
+ * Rule-based text relevance for search: rewards how closely a candidate
+ * string matches the query (exact > word match > prefix > substring) rather
+ * than just "contains it somewhere." Not ML — a simple weighted tier score,
+ * same spirit as the rest of Fliq's ranking.
+ */
+export function textRelevanceScore(text: string, query: string): number {
+  const q = query.trim().toLowerCase();
+  if (!q) return 0;
+  const t = text.toLowerCase();
+  if (t === q) return 100;
+  if (t.startsWith(q)) return 80;
+  const words = t.split(/[\s_-]+/).filter(Boolean);
+  if (words.includes(q)) return 65;
+  if (words.some((w) => w.startsWith(q))) return 50;
+  if (t.includes(q)) return 30;
+  return 0;
+}
+
 /** True if a video's caption or hashtags match any of the viewer's blocked keywords. */
 export function matchesKeywordFilter(caption: string, hashtags: string[], filters: string[]): boolean {
   if (filters.length === 0) return false;

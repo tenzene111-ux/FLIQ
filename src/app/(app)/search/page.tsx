@@ -3,23 +3,34 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search as SearchIcon, X, Clock, TrendingUp, ArrowLeft, Play, Music2 } from "lucide-react";
+import { Search as SearchIcon, X, Clock, TrendingUp, ArrowLeft, Play, Music2, Eye } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { UserRow, type UserRowData } from "@/components/creator/UserRow";
+import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { getRecentSearches, addRecentSearch, clearRecentSearches } from "@/lib/recent-searches";
+import { getRecentSearches, addRecentSearch, removeRecentSearch, clearRecentSearches } from "@/lib/recent-searches";
 import { formatCount, cn } from "@/lib/utils";
 import type { VideoDTO } from "@/types/models";
 
-type Tab = "top" | "users" | "videos" | "sounds" | "hashtags";
-const TABS: Tab[] = ["top", "users", "videos", "sounds", "hashtags"];
+type Tab = "top" | "users" | "videos" | "photos" | "sounds" | "hashtags" | "live";
+const TABS: Tab[] = ["top", "users", "videos", "photos", "sounds", "hashtags", "live"];
+
+interface LiveResult {
+  id: string;
+  title: string;
+  category: string;
+  viewerCount: number;
+  user: { username: string; displayName: string; avatarUrl: string | null; isVerified: boolean };
+}
 
 interface SearchResults {
   users: (UserRowData & { followerCount: number; isFollowing: boolean })[];
   videos: VideoDTO[];
+  photos: VideoDTO[];
   hashtags: { tag: string; viewCount: number; videoCount: number }[];
   sounds: { id: string; title: string; artist: string; coverUrl: string; videoCount: number }[];
+  live: LiveResult[];
 }
 
 export default function SearchPage() {
@@ -62,6 +73,11 @@ export default function SearchPage() {
     setRecent(getRecentSearches());
   }
 
+  function deleteRecent(term: string) {
+    removeRecentSearch(term);
+    setRecent(getRecentSearches());
+  }
+
   async function toggleFollow(u: UserRowData) {
     const isF = following.has(u.id);
     setFollowing((prev) => {
@@ -76,8 +92,10 @@ export default function SearchPage() {
 
   const activeResultsCount = useMemo(() => {
     if (!results) return 0;
-    return results.users.length + results.videos.length + results.hashtags.length + results.sounds.length;
+    return results.users.length + results.videos.length + results.photos.length + results.hashtags.length + results.sounds.length + results.live.length;
   }, [results]);
+
+  const ctx = `context=search&q=${encodeURIComponent(debounced)}`;
 
   return (
     <PageContainer className="max-w-2xl mx-auto w-full safe-top">
@@ -116,7 +134,7 @@ export default function SearchPage() {
                   tab === t ? "text-white border-white" : "text-muted-2 border-transparent"
                 )}
               >
-                {t}
+                {t === "live" ? "LIVE" : t}
               </button>
             ))}
           </div>
@@ -142,10 +160,19 @@ export default function SearchPage() {
                 </div>
                 <div className="flex flex-col">
                   {recent.map((r) => (
-                    <button key={r} onClick={() => commitSearch(r)} className="flex items-center gap-3 py-2 text-left">
-                      <Clock size={15} className="text-muted-2 shrink-0" />
-                      <span className="text-sm text-white/90">{r}</span>
-                    </button>
+                    <div key={r} className="flex items-center gap-3 py-2 group">
+                      <button onClick={() => commitSearch(r)} className="flex-1 flex items-center gap-3 text-left min-w-0">
+                        <Clock size={15} className="text-muted-2 shrink-0" />
+                        <span className="text-sm text-white/90 truncate">{r}</span>
+                      </button>
+                      <button
+                        onClick={() => deleteRecent(r)}
+                        aria-label={`Remove ${r} from recent searches`}
+                        className="text-muted-2 hover:text-white shrink-0 p-1"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -173,6 +200,29 @@ export default function SearchPage() {
                 <div className="rounded-2xl border border-border divide-y divide-border overflow-hidden">
                   {results.users.map((u) => (
                     <UserRow key={u.id} user={u} following={following.has(u.id)} onToggleFollow={() => toggleFollow(u)} />
+                  ))}
+                </div>
+              </SearchSection>
+            )}
+            {(tab === "top" || tab === "live") && results.live.length > 0 && (
+              <SearchSection title="LIVE">
+                <div className="flex flex-col gap-1">
+                  {results.live.map((l) => (
+                    <Link key={l.id} href={`/live/${l.id}`} className="flex items-center gap-3 py-2 hover:bg-white/5 rounded-lg px-1">
+                      <div className="relative shrink-0">
+                        <Avatar src={l.user.avatarUrl} alt={l.user.displayName} size="md" ring verified={l.user.isVerified} />
+                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-danger text-white text-[8px] font-bold px-1.5 py-px rounded-full">
+                          LIVE
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white text-sm font-semibold truncate">@{l.user.username}</p>
+                        <p className="text-muted-2 text-xs truncate">{l.title}</p>
+                      </div>
+                      <span className="flex items-center gap-1 text-muted-2 text-xs shrink-0">
+                        <Eye size={12} /> {formatCount(l.viewerCount)}
+                      </span>
+                    </Link>
                   ))}
                 </div>
               </SearchSection>
@@ -213,13 +263,32 @@ export default function SearchPage() {
               <SearchSection title="Videos">
                 <div className="grid grid-cols-3 gap-0.5">
                   {results.videos.map((v) => (
-                    <Link key={v.id} href={`/video/${v.id}`} className="relative aspect-[9/16] bg-surface-2 overflow-hidden">
+                    <Link key={v.id} href={`/video/${v.id}?${ctx}&stype=videos`} className="relative aspect-[9/16] bg-surface-2 overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={v.thumbnailUrl} alt={v.caption} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <div className="absolute bottom-1.5 left-1.5 text-white text-[11px] font-medium flex items-center gap-1">
                         <Play size={10} fill="white" /> {formatCount(v.counts.views)}
                       </div>
+                      <p className="absolute bottom-1.5 right-1.5 text-white/80 text-[10px]">@{v.user.username}</p>
+                    </Link>
+                  ))}
+                </div>
+              </SearchSection>
+            )}
+            {(tab === "top" || tab === "photos") && results.photos.length > 0 && (
+              <SearchSection title="Photos">
+                <div className="grid grid-cols-3 gap-0.5">
+                  {results.photos.map((v) => (
+                    <Link key={v.id} href={`/video/${v.id}?${ctx}&stype=photos`} className="relative aspect-[9/16] bg-surface-2 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={v.thumbnailUrl} alt={v.caption} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                      {v.photos.length > 1 && (
+                        <span className="absolute top-1.5 right-1.5 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded">
+                          1/{v.photos.length}
+                        </span>
+                      )}
                       <p className="absolute bottom-1.5 right-1.5 text-white/80 text-[10px]">@{v.user.username}</p>
                     </Link>
                   ))}
