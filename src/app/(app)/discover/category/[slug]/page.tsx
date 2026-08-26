@@ -8,11 +8,13 @@ import { VideoGrid } from "@/components/video/VideoGrid";
 import { VideoGridSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { CATEGORIES } from "@/lib/constants";
 import type { VideoDTO } from "@/types/models";
 
 export default function CategoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = usePromise(params);
-  const [category, setCategory] = useState<{ slug: string; label: string; emoji: string } | null>(null);
+  const meta = CATEGORIES.find((c) => c.slug === slug);
+  const [category, setCategory] = useState<{ slug: string; label: string } | null>(null);
   const [videos, setVideos] = useState<VideoDTO[] | null>(null);
   const [error, setError] = useState(false);
 
@@ -39,7 +41,12 @@ export default function CategoryPage({ params }: { params: Promise<{ slug: strin
           <ArrowLeft size={22} />
         </Link>
         <h1 className="text-white text-lg font-bold flex items-center gap-2">
-          {category?.emoji} {category?.label ?? "Category"}
+          {meta && (
+            <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.color}22`, color: meta.color }}>
+              <meta.icon size={15} />
+            </span>
+          )}
+          {category?.label ?? meta?.label ?? "Category"}
         </h1>
       </div>
 

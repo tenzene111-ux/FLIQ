@@ -181,9 +181,14 @@ export default function DiscoverPage() {
                 <Link
                   key={c.slug}
                   href={`/discover/category/${c.slug}`}
-                  className="flex items-center gap-2.5 px-4 py-3.5 rounded-xl border border-border bg-surface-2 hover:bg-surface-3 transition-colors"
+                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-border bg-surface-2 hover:bg-surface-3 transition-colors"
                 >
-                  <span className="text-xl">{c.emoji}</span>
+                  <span
+                    className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${c.color}22`, color: c.color }}
+                  >
+                    <c.icon size={17} />
+                  </span>
                   <span className="text-white text-sm font-medium">{c.label}</span>
                 </Link>
               ))}

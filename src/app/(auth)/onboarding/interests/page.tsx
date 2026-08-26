@@ -64,7 +64,12 @@ export default function OnboardingInterestsPage() {
                   active ? "border-transparent bg-gradient-brand-soft ring-1 ring-fliq-magenta/50" : "border-border bg-surface-2 hover:bg-surface-3"
                 )}
               >
-                <span className="text-xl">{c.emoji}</span>
+                <span
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${c.color}22`, color: c.color }}
+                >
+                  <c.icon size={16} />
+                </span>
                 <span className="text-white text-sm font-medium">{c.label}</span>
                 {active && <Check size={16} className="text-fliq-cyan ml-auto shrink-0" />}
               </button>

@@ -131,7 +131,12 @@ export default function ContentPreferencesPage() {
                   active ? "border-transparent bg-gradient-brand-soft text-white ring-1 ring-fliq-magenta/50" : "border-border text-white/80"
                 )}
               >
-                <span>{c.emoji}</span>
+                <span
+                  className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${c.color}22`, color: active ? "#fff" : c.color }}
+                >
+                  <c.icon size={13} />
+                </span>
                 {c.label}
               </button>
             );

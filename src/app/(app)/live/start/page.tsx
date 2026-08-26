@@ -67,7 +67,7 @@ export default function StartLivePage() {
                   category === c.slug ? "bg-white text-black border-white" : "border-border text-white"
                 )}
               >
-                {c.emoji} {c.label}
+                <c.icon size={13} /> {c.label}
               </button>
             ))}
           </div>
