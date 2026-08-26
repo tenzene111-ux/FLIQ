@@ -3,22 +3,37 @@ import { isOnline } from "@/lib/presence";
 
 export type ConversationGate = { ok: true; conversationId: string } | { ok: false; reason: string };
 
-/** Respects the target's "Show activity status" privacy setting before exposing their online state to anyone else. */
-export async function canShowOnlineStatus(targetUserId: string): Promise<boolean> {
+/**
+ * Respects the target's "Show activity status" privacy setting, and — if the
+ * target has restricted the viewer — hides it from that viewer specifically
+ * even though everyone else still sees it (real Restrict behavior).
+ */
+export async function canShowOnlineStatus(targetUserId: string, viewerId?: string | null): Promise<boolean> {
   if (!isOnline(targetUserId)) return false;
   const settings = await prisma.userSettings.findUnique({ where: { userId: targetUserId } });
-  return settings?.showActivityStatus ?? true;
+  if (!(settings?.showActivityStatus ?? true)) return false;
+  if (viewerId) {
+    const restricted = await prisma.restrictedUser.findUnique({
+      where: { userId_restrictedId: { userId: targetUserId, restrictedId: viewerId } },
+    });
+    if (restricted) return false;
+  }
+  return true;
 }
 
 /**
  * Read receipts are mutual, like most messaging apps: if either side has
- * turned them off, neither side sees "Seen" status for the other.
+ * turned them off, neither side sees "Seen" status for the other. A
+ * restriction in either direction also hides it, same as online status.
  */
 export async function canShowReadReceipts(userIdA: string, userIdB: string): Promise<boolean> {
-  const [a, b] = await Promise.all([
+  const [a, b, restrictedAB, restrictedBA] = await Promise.all([
     prisma.userSettings.findUnique({ where: { userId: userIdA } }),
     prisma.userSettings.findUnique({ where: { userId: userIdB } }),
+    prisma.restrictedUser.findUnique({ where: { userId_restrictedId: { userId: userIdA, restrictedId: userIdB } } }),
+    prisma.restrictedUser.findUnique({ where: { userId_restrictedId: { userId: userIdB, restrictedId: userIdA } } }),
   ]);
+  if (restrictedAB || restrictedBA) return false;
   return (a?.readReceipts ?? true) && (b?.readReceipts ?? true);
 }
 

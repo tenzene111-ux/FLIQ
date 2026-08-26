@@ -35,7 +35,7 @@ export const GET = withAuth<{ id: string }>(async (_req, { user, params }) => {
   const other = otherParticipant?.user;
 
   const [online, readReceiptsOn] = other
-    ? await Promise.all([canShowOnlineStatus(other.id), canShowReadReceipts(user.id, other.id)])
+    ? await Promise.all([canShowOnlineStatus(other.id, user.id), canShowReadReceipts(user.id, other.id)])
     : [false, false];
 
   return jsonOk({

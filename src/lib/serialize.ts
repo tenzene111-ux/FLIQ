@@ -74,6 +74,7 @@ export function serializeVideo(v: VideoWithRelations, followingIds?: Set<string>
     allowDownload: v.allowDownload,
     allowSoundReuse: v.allowSoundReuse,
     allowReuse: v.allowReuse,
+    isPinned: v.isPinned,
     location: v.location,
     status: v.status,
     createdAt: v.createdAt.toISOString(),

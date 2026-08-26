@@ -14,15 +14,19 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
 
   const viewer = await getCurrentUser();
   const followingIds = await getFollowingIdSet(viewer?.id);
-  const blockedIds = viewer
-    ? (await prisma.blockedUser.findMany({ where: { blockerId: viewer.id }, select: { blockedId: true } })).map((b) => b.blockedId)
-    : [];
+  const [blockedRows, mutedRows] = viewer
+    ? await Promise.all([
+        prisma.blockedUser.findMany({ where: { blockerId: viewer.id }, select: { blockedId: true } }),
+        prisma.mutedUser.findMany({ where: { userId: viewer.id }, select: { mutedId: true } }),
+      ])
+    : [[], []];
+  const excludedAuthorIds = [...blockedRows.map((b) => b.blockedId), ...mutedRows.map((m) => m.mutedId)];
 
   if (tab === "following") {
     if (!viewer || followingIds.size === 0) {
       return jsonOk({ videos: [], nextOffset: null, empty: true });
     }
-    const authorIds = [...followingIds].filter((id) => !blockedIds.includes(id));
+    const authorIds = [...followingIds].filter((id) => !excludedAuthorIds.includes(id));
     const videos = await prisma.video.findMany({
       where: { userId: { in: authorIds }, status: "published" },
       include: videoInclude(viewer?.id),
@@ -42,7 +46,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const all = await prisma.video.findMany({
     where: {
       status: "published",
-      ...(blockedIds.length ? { userId: { notIn: blockedIds } } : {}),
+      ...(excludedAuthorIds.length ? { userId: { notIn: excludedAuthorIds } } : {}),
       ...(negative.videoIds.size ? { id: { notIn: [...negative.videoIds] } } : {}),
     },
     include: videoInclude(viewer?.id),

@@ -11,7 +11,7 @@ export const GET = withErrorHandling<{ username: string }>(async (_req, { params
   const followingIds = await getFollowingIdSet(viewer?.id);
 
   const rows = await prisma.follow.findMany({
-    where: { followingId: target.id },
+    where: { followingId: target.id, status: "accepted" },
     include: { follower: { select: PUBLIC_USER_SELECT } },
     orderBy: { createdAt: "desc" },
     take: 200,

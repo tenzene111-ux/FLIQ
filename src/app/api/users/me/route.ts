@@ -23,17 +23,28 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid input", 422);
   const data = parsed.data;
 
+  const USERNAME_COOLDOWN_DAYS = 7;
   if (data.username && data.username.toLowerCase() !== user.username) {
     const lower = data.username.toLowerCase();
     if (!isValidUsername(lower)) return jsonError("Username must be 3-30 characters (letters, numbers, underscore)", 422);
     const existing = await prisma.user.findUnique({ where: { username: lower } });
     if (existing) return jsonError("This username is already taken", 409);
+
+    const current = await prisma.user.findUnique({ where: { id: user.id }, select: { usernameChangedAt: true } });
+    if (current?.usernameChangedAt) {
+      const cooldownMs = USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+      const elapsed = Date.now() - current.usernameChangedAt.getTime();
+      if (elapsed < cooldownMs) {
+        const daysLeft = Math.ceil((cooldownMs - elapsed) / (24 * 60 * 60 * 1000));
+        return jsonError(`You can change your username again in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`, 422);
+      }
+    }
   }
 
   const updated = await prisma.user.update({
     where: { id: user.id },
     data: {
-      ...(data.username ? { username: data.username.toLowerCase() } : {}),
+      ...(data.username ? { username: data.username.toLowerCase(), usernameChangedAt: new Date() } : {}),
       ...(data.displayName !== undefined ? { displayName: data.displayName } : {}),
       ...(data.bio !== undefined ? { bio: data.bio } : {}),
       ...(data.website !== undefined ? { website: data.website } : {}),
@@ -43,7 +54,7 @@ export const PATCH = withAuth(async (req: NextRequest, { user }) => {
       ...(data.gender !== undefined ? { gender: data.gender } : {}),
       ...(data.interests !== undefined ? { interests: JSON.stringify(data.interests) } : {}),
     },
-    select: { ...PUBLIC_USER_SELECT, email: true, emailVerified: true, interests: true },
+    select: { ...PUBLIC_USER_SELECT, email: true, emailVerified: true, interests: true, usernameChangedAt: true },
   });
 
   return jsonOk({ user: updated });

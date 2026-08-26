@@ -34,7 +34,7 @@ export const GET = withAuth(async (req: NextRequest, { user }) => {
         avatarUrl: p.conversation.isGroup ? p.conversation.avatarUrl : null,
         memberCount: p.conversation.isGroup ? p.conversation.participants.length : null,
         user: other ?? null,
-        online: other ? await canShowOnlineStatus(other.id) : false,
+        online: other ? await canShowOnlineStatus(other.id, user.id) : false,
         lastMessage: lastMessage
           ? {
               text: lastMessage.isDeleted ? "Message deleted" : lastMessage.text,

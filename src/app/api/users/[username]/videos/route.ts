@@ -68,7 +68,7 @@ export const GET = withErrorHandling<{ username: string }>(async (req, { params 
   const videos = await prisma.video.findMany({
     where: { userId: target.id, status: "published", ...privacyFilter },
     include: videoInclude(viewer?.id),
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ isPinned: "desc" }, { pinnedAt: "desc" }, { createdAt: "desc" }],
     take: 60,
   });
   return jsonOk({ videos: videos.map((v) => serializeVideo(v, followingIds)) });

@@ -40,7 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <AppProviders
           initialUser={
             user
-              ? { ...user, createdAt: user.createdAt.toISOString() }
+              ? { ...user, createdAt: user.createdAt.toISOString(), usernameChangedAt: user.usernameChangedAt?.toISOString() ?? null }
               : null
           }
         >

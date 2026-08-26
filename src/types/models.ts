@@ -34,6 +34,7 @@ export interface VideoDTO {
   allowDownload: boolean;
   allowSoundReuse: boolean;
   allowReuse: boolean;
+  isPinned: boolean;
   location: string | null;
   status: string;
   createdAt: string;

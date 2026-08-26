@@ -16,9 +16,15 @@ import {
   Bookmark,
   Lock,
   UserX,
+  VolumeX,
+  Volume2,
+  ShieldAlert,
+  ShieldOff,
   Flag,
   BarChart3,
   FileEdit,
+  Folder,
+  Plus,
 } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Avatar } from "@/components/ui/Avatar";
@@ -31,6 +37,7 @@ import { FollowListSheet } from "@/components/creator/FollowListSheet";
 import { ReportSheet } from "@/components/moderation/ReportSheet";
 import { Sheet } from "@/components/ui/Sheet";
 import { ShareMenuSheet } from "@/components/share/ShareMenuSheet";
+import { CollectionPickerSheet, type CollectionSummary } from "@/components/creator/CollectionPickerSheet";
 import { useAuthStore } from "@/store/auth";
 import { toast } from "@/store/toast";
 import { formatCount, cn } from "@/lib/utils";
@@ -58,7 +65,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   const [user, setUser] = useState<ProfileUser | null>(null);
   const [stats, setStats] = useState<{ followers: number; following: number; likes: number } | null>(null);
-  const [following, setFollowing] = useState(false);
+  const [followStatus, setFollowStatus] = useState<"none" | "pending" | "accepted">("none");
   const [tab, setTab] = useState<Tab>("videos");
   const [videos, setVideos] = useState<VideoDTO[] | null>(null);
   const [error, setError] = useState(false);
@@ -67,6 +74,12 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [reportOpen, setReportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [blocked, setBlocked] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [restricted, setRestricted] = useState(false);
+  const [collections, setCollections] = useState<CollectionSummary[] | null>(null);
+  const [activeCollection, setActiveCollection] = useState<string | null>(null);
+  const [pickerVideoId, setPickerVideoId] = useState<string | null>(null);
+  const [newCollectionName, setNewCollectionName] = useState<string | null>(null);
 
   function loadProfile() {
     setError(false);
@@ -78,7 +91,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       .then((d) => {
         setUser(d.user);
         setStats(d.stats);
-        setFollowing(d.isFollowing);
+        setFollowStatus(d.followStatus);
       })
       .catch(() => setError(true));
   }
@@ -88,21 +101,80 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   useEffect(() => {
     if (!user) return;
     setVideos(null);
+    if (tab === "saved" && activeCollection) {
+      fetch(`/api/collections/${activeCollection}`)
+        .then((r) => r.json())
+        .then((d) => setVideos(d.videos || []))
+        .catch(() => setVideos([]));
+      return;
+    }
     fetch(`/api/users/${username}/videos?tab=${tab}`)
       .then((r) => r.json())
       .then((d) => setVideos(d.videos || []))
       .catch(() => setVideos([]));
-  }, [username, tab, user]);
+  }, [username, tab, user, activeCollection]);
+
+  useEffect(() => {
+    if (!user?.isOwn || tab !== "saved" || collections) return;
+    fetch("/api/collections")
+      .then((r) => r.json())
+      .then((d) => setCollections(d.collections || []))
+      .catch(() => setCollections([]));
+  }, [user, tab, collections]);
+
+  function selectTab(next: Tab) {
+    if (next !== "saved") setActiveCollection(null);
+    setTab(next);
+  }
+
+  async function deleteActiveCollection() {
+    if (!activeCollection) return;
+    const collection = collections?.find((c) => c.id === activeCollection);
+    if (!confirm(`Delete "${collection?.name ?? "this collection"}"? Saved posts won't be removed from your account.`)) return;
+    await fetch(`/api/collections/${activeCollection}`, { method: "DELETE" }).catch(() => {});
+    setCollections((prev) => prev?.filter((c) => c.id !== activeCollection) ?? null);
+    setActiveCollection(null);
+  }
+
+  async function createCollectionInline(name: string) {
+    const res = await fetch("/api/collections", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (res?.ok && data) {
+      setCollections((prev) => [...(prev ?? []), data.collection]);
+      setActiveCollection(data.collection.id);
+    } else {
+      toast("error", data?.error || "Couldn't create collection");
+    }
+  }
 
   async function toggleFollow() {
     if (!currentUser) {
       router.push("/login");
       return;
     }
-    const next = !following;
-    setFollowing(next);
-    setStats((s) => (s ? { ...s, followers: s.followers + (next ? 1 : -1) } : s));
-    await fetch(`/api/users/${username}/follow`, { method: next ? "POST" : "DELETE" }).catch(() => {});
+    if (followStatus === "none") {
+      // Optimistic only for public accounts — a private account needs the
+      // server's answer since it might become "pending" instead of "accepted".
+      if (!user?.isPrivate) {
+        setFollowStatus("accepted");
+        setStats((s) => (s ? { ...s, followers: s.followers + 1 } : s));
+      }
+      const res = await fetch(`/api/users/${username}/follow`, { method: "POST" }).catch(() => null);
+      const data = await res?.json().catch(() => null);
+      if (data?.status) {
+        setFollowStatus(data.status);
+        if (data.stats) setStats(data.stats);
+      }
+    } else {
+      const wasAccepted = followStatus === "accepted";
+      setFollowStatus("none");
+      if (wasAccepted) setStats((s) => (s ? { ...s, followers: Math.max(0, s.followers - 1) } : s));
+      await fetch(`/api/users/${username}/follow`, { method: "DELETE" }).catch(() => {});
+    }
   }
 
   async function handleMessage() {
@@ -118,7 +190,21 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     setBlocked(next);
     await fetch(`/api/users/${username}/block`, { method: next ? "POST" : "DELETE" }).catch(() => {});
     toast("success", next ? `Blocked @${username}` : `Unblocked @${username}`);
-    if (next) setFollowing(false);
+    if (next) setFollowStatus("none");
+  }
+
+  async function toggleMute() {
+    const next = !muted;
+    setMuted(next);
+    await fetch(`/api/users/${username}/mute`, { method: next ? "POST" : "DELETE" }).catch(() => {});
+    toast("success", next ? `Muted @${username}` : `Unmuted @${username}`);
+  }
+
+  async function toggleRestrict() {
+    const next = !restricted;
+    setRestricted(next);
+    await fetch(`/api/users/${username}/restrict`, { method: next ? "POST" : "DELETE" }).catch(() => {});
+    toast("success", next ? `Restricted @${username}` : `Unrestricted @${username}`);
   }
 
   if (error) {
@@ -211,8 +297,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                 </>
               ) : (
                 <>
-                  <Button variant={following ? "secondary" : "primary"} className="flex-1" onClick={toggleFollow}>
-                    {following ? "Following" : "Follow"}
+                  <Button variant={followStatus === "none" ? "primary" : "secondary"} className="flex-1" onClick={toggleFollow}>
+                    {followStatus === "accepted" ? "Following" : followStatus === "pending" ? "Requested" : "Follow"}
                   </Button>
                   <Button variant="secondary" className="flex-1" onClick={handleMessage}>
                     Message
@@ -240,7 +326,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             {tabs.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => selectTab(t.id)}
                 className={cn("flex-1 flex items-center justify-center py-3 border-b-2", tab === t.id ? "border-white text-white" : "border-transparent text-muted-2")}
                 aria-label={t.label}
               >
@@ -249,8 +335,78 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             ))}
           </div>
 
-          {user.isPrivate && !user.isOwn && !following ? (
-            <EmptyState icon={Lock} title="This account is private" description={`Follow @${user.username} to see their videos.`} />
+          {tab === "saved" && user.isOwn && (
+            <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 no-scrollbar">
+              <button
+                onClick={() => setActiveCollection(null)}
+                className={cn(
+                  "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border",
+                  !activeCollection ? "bg-white text-black border-white" : "border-border text-muted-2"
+                )}
+              >
+                All saved
+              </button>
+              {(collections ?? []).map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveCollection(c.id)}
+                  className={cn(
+                    "shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border flex items-center gap-1.5",
+                    activeCollection === c.id ? "bg-white text-black border-white" : "border-border text-muted-2"
+                  )}
+                >
+                  <Folder size={12} />
+                  {c.name} · {c.count}
+                </button>
+              ))}
+              {activeCollection && (
+                <button onClick={deleteActiveCollection} className="shrink-0 text-danger text-xs font-medium px-1">
+                  Delete
+                </button>
+              )}
+              {newCollectionName === null ? (
+                <button
+                  onClick={() => setNewCollectionName("")}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-border-strong text-muted-2 flex items-center gap-1"
+                >
+                  <Plus size={12} /> New
+                </button>
+              ) : (
+                <span className="shrink-0 flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={newCollectionName}
+                    onChange={(e) => setNewCollectionName(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter" && newCollectionName.trim()) {
+                        await createCollectionInline(newCollectionName.trim());
+                        setNewCollectionName(null);
+                      } else if (e.key === "Escape") setNewCollectionName(null);
+                    }}
+                    placeholder="Collection name"
+                    maxLength={40}
+                    className="w-32 bg-surface-2 border border-border rounded-full px-3 py-1.5 text-xs text-white outline-none"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (newCollectionName.trim()) await createCollectionInline(newCollectionName.trim());
+                      setNewCollectionName(null);
+                    }}
+                    className="text-xs font-semibold text-fliq-cyan px-1"
+                  >
+                    Add
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
+
+          {user.isPrivate && !user.isOwn && followStatus !== "accepted" ? (
+            <EmptyState
+              icon={Lock}
+              title={followStatus === "pending" ? "Follow request pending" : "This account is private"}
+              description={followStatus === "pending" ? "You'll see their posts once they approve your request." : `Follow @${user.username} to see their videos.`}
+            />
           ) : videos === null ? (
             <VideoGridSkeleton />
           ) : videos.length === 0 ? (
@@ -276,6 +432,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
               linkBuilder={
                 tab === "drafts" ? (v) => `/create/post?draftId=${v.id}` : (v) => `/video/${v.id}?context=profile&username=${username}&tab=${tab}`
               }
+              onItemMenu={tab === "saved" && user.isOwn ? (v) => setPickerVideoId(v.id) : undefined}
             />
           )}
         </>
@@ -283,7 +440,16 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
       {user && (
         <>
-          <FollowListSheet open={followSheet === "followers"} onClose={() => setFollowSheet(null)} username={username} type="followers" title="Followers" />
+          <FollowListSheet open={followSheet === "followers"} onClose={() => setFollowSheet(null)} username={username} type="followers" title="Followers" isOwnProfile={user.isOwn} />
+          {pickerVideoId && (
+            <CollectionPickerSheet
+              open={!!pickerVideoId}
+              onClose={() => setPickerVideoId(null)}
+              videoId={pickerVideoId}
+              collections={collections ?? []}
+              onCollectionsChange={setCollections}
+            />
+          )}
           <FollowListSheet open={followSheet === "following"} onClose={() => setFollowSheet(null)} username={username} type="following" title="Following" />
           <ReportSheet open={reportOpen} onClose={() => setReportOpen(false)} targetType="user" targetId={user.id} />
           <ShareMenuSheet
@@ -296,6 +462,14 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           />
           <Sheet open={moreOpen} onClose={() => setMoreOpen(false)}>
             <div className="px-2 pb-3">
+              <button onClick={toggleMute} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 text-left text-white">
+                {muted ? <Volume2 size={19} /> : <VolumeX size={19} />}
+                <span className="text-sm font-medium">{muted ? "Unmute" : "Mute"} @{user.username}</span>
+              </button>
+              <button onClick={toggleRestrict} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 text-left text-white">
+                {restricted ? <ShieldOff size={19} /> : <ShieldAlert size={19} />}
+                <span className="text-sm font-medium">{restricted ? "Unrestrict" : "Restrict"} @{user.username}</span>
+              </button>
               <button onClick={toggleBlock} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-white/5 text-left text-white">
                 <UserX size={19} /> <span className="text-sm font-medium">{blocked ? "Unblock" : "Block"} @{user.username}</span>
               </button>

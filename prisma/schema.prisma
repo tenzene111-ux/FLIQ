@@ -39,6 +39,7 @@ model User {
   resetToken        String?
   resetTokenExpires DateTime?
   interests         String   @default("[]") // JSON array of category slugs
+  usernameChangedAt DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -70,6 +71,11 @@ model User {
   messageReactions  MessageReaction[]
   createEvents      CreateEvent[]
   sharedInMessages  Message[] @relation("sharedProfileMessages")
+  muting            MutedUser[] @relation("muter")
+  mutedBy           MutedUser[] @relation("mutedBy")
+  restricting       RestrictedUser[] @relation("restricter")
+  restrictedBy      RestrictedUser[] @relation("restrictedBy")
+  collections       Collection[]
 
   @@index([username])
 }
@@ -105,6 +111,7 @@ model Follow {
   id          String   @id @default(cuid())
   followerId  String
   followingId String
+  status      String   @default("accepted") // accepted | pending — pending when following a private account
   createdAt   DateTime @default(now())
 
   follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
@@ -113,6 +120,57 @@ model Follow {
   @@unique([followerId, followingId])
   @@index([followingId])
   @@index([followerId])
+}
+
+model MutedUser {
+  id        String   @id @default(cuid())
+  userId    String
+  mutedId   String
+  createdAt DateTime @default(now())
+
+  user  User @relation("muter", fields: [userId], references: [id], onDelete: Cascade)
+  muted User @relation("mutedBy", fields: [mutedId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mutedId])
+  @@index([mutedId])
+}
+
+model RestrictedUser {
+  id           String   @id @default(cuid())
+  userId       String
+  restrictedId String
+  createdAt    DateTime @default(now())
+
+  user       User @relation("restricter", fields: [userId], references: [id], onDelete: Cascade)
+  restricted User @relation("restrictedBy", fields: [restrictedId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restrictedId])
+  @@index([restrictedId])
+}
+
+model Collection {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CollectionItem[]
+
+  @@index([userId])
+}
+
+model CollectionItem {
+  id           String   @id @default(cuid())
+  collectionId String
+  videoId      String
+  createdAt    DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  video      Video      @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, videoId])
+  @@index([videoId])
 }
 
 model BlockedUser {
@@ -151,6 +209,8 @@ model Video {
   status         String   @default("published") // published | processing | removed | draft
   isRepostOfId   String?
   duetOfId       String?
+  isPinned       Boolean  @default(false)
+  pinnedAt       DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -171,6 +231,7 @@ model Video {
   reports      Report[]
   notInterested NotInterested[]
   sharedInMessages Message[] @relation("sharedVideoMessages")
+  collectionItems CollectionItem[]
 
   @@index([userId])
   @@index([createdAt])

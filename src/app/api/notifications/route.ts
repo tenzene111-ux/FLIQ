@@ -7,7 +7,7 @@ const TAB_TYPES: Record<string, string[] | undefined> = {
   all: undefined,
   likes: ["like"],
   comments: ["comment"],
-  followers: ["follow"],
+  followers: ["follow", "follow_request"],
   mentions: ["mention"],
 };
 

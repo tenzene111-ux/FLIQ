@@ -44,7 +44,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
 
   const safeUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { ...PUBLIC_USER_SELECT, email: true, emailVerified: true, interests: true },
+    select: { ...PUBLIC_USER_SELECT, email: true, emailVerified: true, interests: true, usernameChangedAt: true },
   });
 
   return jsonOk({ user: safeUser });

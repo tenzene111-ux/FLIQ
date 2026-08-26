@@ -33,6 +33,19 @@ export default function EditProfilePage() {
   const debouncedUsername = useDebouncedValue(username, 400);
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
 
+  const [cooldownDaysLeft, setCooldownDaysLeft] = useState(0);
+
+  useEffect(() => {
+    const USERNAME_COOLDOWN_DAYS = 7;
+    if (!user?.usernameChangedAt) {
+      setCooldownDaysLeft(0);
+      return;
+    }
+    const elapsedMs = Date.now() - new Date(user.usernameChangedAt).getTime();
+    const remainingMs = USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000 - elapsedMs;
+    setCooldownDaysLeft(remainingMs > 0 ? Math.ceil(remainingMs / (24 * 60 * 60 * 1000)) : 0);
+  }, [user?.usernameChangedAt]);
+
   useEffect(() => {
     if (!user) return;
     setDisplayName(user.displayName);
@@ -143,6 +156,7 @@ export default function EditProfilePage() {
               onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ""))}
               maxLength={30}
               className="pr-9"
+              disabled={cooldownDaysLeft > 0}
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2">
               {usernameStatus === "checking" && <Loader2 size={16} className="animate-spin text-muted-2" />}
@@ -150,9 +164,17 @@ export default function EditProfilePage() {
               {(usernameStatus === "taken" || usernameStatus === "invalid") && <X size={16} className="text-danger" />}
             </span>
           </div>
-          {usernameStatus === "taken" && <p className="text-danger text-xs mt-1">This username is taken</p>}
-          {usernameStatus === "invalid" && <p className="text-danger text-xs mt-1">3-30 characters, letters/numbers/underscore only</p>}
-          {usernameStatus === "available" && <p className="text-success text-xs mt-1">Username is available</p>}
+          {cooldownDaysLeft > 0 ? (
+            <p className="text-muted-2 text-xs mt-1">
+              You can change your username again in {cooldownDaysLeft} day{cooldownDaysLeft === 1 ? "" : "s"}
+            </p>
+          ) : (
+            <>
+              {usernameStatus === "taken" && <p className="text-danger text-xs mt-1">This username is taken</p>}
+              {usernameStatus === "invalid" && <p className="text-danger text-xs mt-1">3-30 characters, letters/numbers/underscore only</p>}
+              {usernameStatus === "available" && <p className="text-success text-xs mt-1">Username is available</p>}
+            </>
+          )}
         </div>
         <div>
           <Label htmlFor="bio">Bio</Label>

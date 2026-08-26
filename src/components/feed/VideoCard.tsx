@@ -26,7 +26,7 @@ import { useAuthStore } from "@/store/auth";
 import { toast } from "@/store/toast";
 import { cn, formatCount } from "@/lib/utils";
 import type { VideoDTO } from "@/types/models";
-import { EyeOff, Flag, Info } from "lucide-react";
+import { EyeOff, Flag, Info, Pin, PinOff } from "lucide-react";
 
 export function VideoCard({
   video,
@@ -62,12 +62,25 @@ export function VideoCard({
   const [repostCount, setRepostCount] = useState(video.counts.reposts);
   const [commentCount, setCommentCount] = useState(video.counts.comments);
   const [shareCount, setShareCount] = useState(video.counts.shares);
-  const [following, setFollowing] = useState(video.viewer.isFollowingAuthor);
+  const [followStatus, setFollowStatus] = useState<"none" | "pending" | "accepted">(video.viewer.isFollowingAuthor ? "accepted" : "none");
 
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [pinned, setPinned] = useState(video.isPinned);
+
+  async function togglePin() {
+    setMoreOpen(false);
+    const res = await fetch(`/api/videos/${video.id}/pin`, { method: "POST" }).catch(() => null);
+    const data = await res?.json().catch(() => null);
+    if (res?.ok && data) {
+      setPinned(data.isPinned);
+      toast("success", data.isPinned ? "Added to your featured posts" : "Removed from featured posts");
+    } else {
+      toast("error", data?.error || "You can only feature up to 3 posts");
+    }
+  }
 
   const isOwn = currentUser?.id === video.user.id;
   const watchStartRef = useRef<number>(0);
@@ -220,10 +233,16 @@ export function VideoCard({
   }
 
   function doFollow() {
-    requireAuth(() => {
-      const next = !following;
-      setFollowing(next);
-      fetch(`/api/users/${video.user.username}/follow`, { method: next ? "POST" : "DELETE" }).catch(() => {});
+    requireAuth(async () => {
+      if (followStatus === "none") {
+        if (!video.user.isPrivate) setFollowStatus("accepted");
+        const res = await fetch(`/api/users/${video.user.username}/follow`, { method: "POST" }).catch(() => null);
+        const data = await res?.json().catch(() => null);
+        if (data?.status) setFollowStatus(data.status);
+      } else {
+        setFollowStatus("none");
+        await fetch(`/api/users/${video.user.username}/follow`, { method: "DELETE" }).catch(() => {});
+      }
     });
   }
 
@@ -312,7 +331,7 @@ export function VideoCard({
           <Link href={`/profile/${video.user.username}`} onClick={(e) => e.stopPropagation()}>
             <Avatar src={video.user.avatarUrl} alt={video.user.displayName} size="lg" ring verified={video.user.isVerified} />
           </Link>
-          {!isOwn && !following && (
+          {!isOwn && followStatus === "none" && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -401,10 +420,10 @@ export function VideoCard({
               }}
               className={cn(
                 "text-xs font-semibold px-2.5 py-1 rounded-full border",
-                following ? "border-white/30 text-white/70" : "border-white text-white"
+                followStatus !== "none" ? "border-white/30 text-white/70" : "border-white text-white"
               )}
             >
-              {following ? "Following" : "Follow"}
+              {followStatus === "accepted" ? "Following" : followStatus === "pending" ? "Requested" : "Follow"}
             </button>
           )}
         </div>
@@ -481,6 +500,9 @@ export function VideoCard({
               router.push(`/profile/${video.user.username}`);
             }}
           />
+          {isOwn && video.status === "published" && (
+            <MoreItem icon={pinned ? PinOff : Pin} label={pinned ? "Unpin from profile" : "Pin to profile"} onClick={togglePin} />
+          )}
           {!isOwn && (
             <MoreItem
               icon={Flag}

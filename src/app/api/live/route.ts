@@ -1,11 +1,16 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { withAuth, jsonError, jsonOk, withErrorHandling } from "@/lib/api";
-import { PUBLIC_USER_SELECT } from "@/lib/auth";
+import { PUBLIC_USER_SELECT, getCurrentUser } from "@/lib/auth";
 
 export const GET = withErrorHandling(async () => {
+  const viewer = await getCurrentUser();
+  const mutedIds = viewer
+    ? (await prisma.mutedUser.findMany({ where: { userId: viewer.id }, select: { mutedId: true } })).map((m) => m.mutedId)
+    : [];
+
   const streams = await prisma.liveStream.findMany({
-    where: { status: "live" },
+    where: { status: "live", ...(mutedIds.length ? { userId: { notIn: mutedIds } } : {}) },
     include: { user: { select: PUBLIC_USER_SELECT } },
     orderBy: { startedAt: "desc" },
   });

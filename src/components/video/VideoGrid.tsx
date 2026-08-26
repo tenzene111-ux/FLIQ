@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Play, Lock } from "lucide-react";
+import { Play, Lock, MoreVertical } from "lucide-react";
 import { formatCount } from "@/lib/utils";
 import type { VideoDTO } from "@/types/models";
 
 export function VideoGrid({
   videos,
   linkBuilder,
+  onItemMenu,
 }: {
   videos: (VideoDTO & { views?: number })[];
   linkBuilder?: (v: VideoDTO) => string;
+  onItemMenu?: (v: VideoDTO) => void;
 }) {
   return (
     <div className="grid grid-cols-3 gap-0.5">
@@ -23,6 +25,19 @@ export function VideoGrid({
             <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center">
               <Lock size={10} className="text-white" />
             </div>
+          )}
+          {onItemMenu && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onItemMenu(v);
+              }}
+              aria-label="Video options"
+              className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center"
+            >
+              <MoreVertical size={13} className="text-white" />
+            </button>
           )}
           <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 text-white text-[11px] font-medium drop-shadow">
             <Play size={11} fill="white" />

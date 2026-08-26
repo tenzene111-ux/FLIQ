@@ -21,6 +21,7 @@ export interface SessionUser {
   email: string;
   emailVerified: boolean;
   interests: string;
+  usernameChangedAt: string | null;
 }
 
 interface AuthState {

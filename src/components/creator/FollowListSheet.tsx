@@ -14,15 +14,22 @@ export function FollowListSheet({
   username,
   type,
   title,
+  isOwnProfile,
 }: {
   open: boolean;
   onClose: () => void;
   username: string;
   type: "followers" | "following";
   title: string;
+  isOwnProfile?: boolean;
 }) {
   const currentUser = useAuthStore((s) => s.user);
   const [users, setUsers] = useState<(UserRowData & { isFollowing: boolean })[] | null>(null);
+
+  async function removeFollower(u: UserRowData) {
+    setUsers((prev) => prev?.filter((x) => x.id !== u.id) ?? null);
+    await fetch(`/api/users/me/followers/${u.username}`, { method: "DELETE" }).catch(() => {});
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +59,7 @@ export function FollowListSheet({
             following={u.isFollowing}
             onToggleFollow={() => toggleFollow(u)}
             subtitle={currentUser?.id === u.id ? "You" : undefined}
+            onRemove={type === "followers" && isOwnProfile && currentUser?.id !== u.id ? () => removeFollower(u) : undefined}
           />
         ))
       )}

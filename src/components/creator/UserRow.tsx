@@ -21,12 +21,14 @@ export function UserRow({
   onToggleFollow,
   subtitle,
   linkToProfile = true,
+  onRemove,
 }: {
   user: UserRowData;
   following: boolean;
   onToggleFollow: () => void;
   subtitle?: string;
   linkToProfile?: boolean;
+  onRemove?: () => void;
 }) {
   const identity = (
     <>
@@ -53,6 +55,11 @@ export function UserRow({
       <Button size="sm" variant={following ? "secondary" : "primary"} onClick={onToggleFollow} className="shrink-0">
         {following ? "Following" : "Follow"}
       </Button>
+      {onRemove && (
+        <Button size="sm" variant="secondary" onClick={onRemove} className="shrink-0">
+          Remove
+        </Button>
+      )}
     </div>
   );
 }

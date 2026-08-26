@@ -62,6 +62,11 @@ export default function ActivityPage() {
     await fetch(`/api/users/${username}/follow`, { method: "POST" }).catch(() => {});
   }
 
+  async function respondToRequest(id: string, username: string, accept: boolean) {
+    setItems((prev) => prev?.filter((n) => n.id !== id) ?? null);
+    await fetch(`/api/users/me/follow-requests/${username}`, { method: accept ? "POST" : "DELETE" }).catch(() => {});
+  }
+
   function iconFor(type: string) {
     switch (type) {
       case "like":
@@ -69,6 +74,7 @@ export default function ActivityPage() {
       case "comment":
         return MessageCircle;
       case "follow":
+      case "follow_request":
         return UserPlus;
       case "share":
         return Share2;
@@ -87,6 +93,8 @@ export default function ActivityPage() {
         return `commented: ${n.commentText ?? ""}`;
       case "follow":
         return "started following you.";
+      case "follow_request":
+        return "wants to follow you.";
       case "share":
         return "shared your video.";
       case "mention":
@@ -117,7 +125,7 @@ export default function ActivityPage() {
 
   function hrefFor(n: NotificationItem) {
     if (n.video) return `/video/${n.video.id}`;
-    if (n.type === "follow" && n.actor) return `/profile/${n.actor.username}`;
+    if ((n.type === "follow" || n.type === "follow_request") && n.actor) return `/profile/${n.actor.username}`;
     return "#";
   }
 
@@ -173,6 +181,29 @@ export default function ActivityPage() {
                 {n.video && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={n.video.thumbnailUrl} alt="" className="w-10 h-12 rounded-md object-cover shrink-0" />
+                )}
+                {n.type === "follow_request" && n.actor && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        respondToRequest(n.id, n.actor!.username, true);
+                      }}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        respondToRequest(n.id, n.actor!.username, false);
+                      }}
+                    >
+                      Decline
+                    </Button>
+                  </div>
                 )}
                 {n.type === "follow" && n.actor && n.actor.id !== currentUser?.id && (
                   <Button

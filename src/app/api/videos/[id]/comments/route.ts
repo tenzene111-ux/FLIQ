@@ -9,13 +9,26 @@ export const GET = withErrorHandling<{ id: string }>(async (req, { params }) => 
   const viewer = await getCurrentUser();
   const parentId = req.nextUrl.searchParams.get("parentId");
 
-  const comments = await prisma.comment.findMany({
-    where: { videoId: params.id, parentId: parentId || null },
-    include: commentInclude(viewer?.id),
-    orderBy: [{ isPinned: "desc" }, { createdAt: "asc" }],
-  });
+  const [video, comments] = await Promise.all([
+    prisma.video.findUnique({ where: { id: params.id }, select: { userId: true } }),
+    prisma.comment.findMany({
+      where: { videoId: params.id, parentId: parentId || null },
+      include: commentInclude(viewer?.id),
+      orderBy: [{ isPinned: "desc" }, { createdAt: "asc" }],
+    }),
+  ]);
 
-  return jsonOk({ comments: comments.map(serializeComment) });
+  // A restricted commenter's replies stay visible to the video owner and to
+  // the commenter themselves, but are hidden from everyone else — same
+  // "shadow" behavior as real Restrict features, without blocking them outright.
+  let hiddenAuthorIds = new Set<string>();
+  if (video && viewer?.id !== video.userId) {
+    const restricted = await prisma.restrictedUser.findMany({ where: { userId: video.userId }, select: { restrictedId: true } });
+    hiddenAuthorIds = new Set(restricted.map((r) => r.restrictedId).filter((id) => id !== viewer?.id));
+  }
+
+  const visible = comments.filter((c) => !hiddenAuthorIds.has(c.userId));
+  return jsonOk({ comments: visible.map(serializeComment) });
 });
 
 const schema = z.object({ text: z.string().min(1).max(500), parentId: z.string().optional().nullable() });

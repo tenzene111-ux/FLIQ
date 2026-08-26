@@ -46,7 +46,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       settings: { create: {} },
       analytics: { create: {} },
     },
-    select: { ...PUBLIC_USER_SELECT, email: true, emailVerified: true, interests: true },
+    select: { ...PUBLIC_USER_SELECT, email: true, emailVerified: true, interests: true, usernameChangedAt: true },
   });
 
   await createSession(user.id);
