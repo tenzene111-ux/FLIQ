@@ -17,6 +17,7 @@ import {
   Wrench,
   BarChart3,
   Wallet,
+  Coins,
   Banknote,
   Megaphone,
   HelpCircle,
@@ -60,6 +61,7 @@ export default function SettingsPage() {
         <SettingsRow icon={Lock} label="Privacy" href="/settings/privacy" />
         <SettingsRow icon={ShieldCheck} label="Security" href="/settings/security" />
         <SettingsRow icon={Bell} label="Notifications" href="/settings/notifications" />
+        <SettingsRow icon={Coins} label="Coin Wallet" href="/settings/wallet" />
       </SettingsGroup>
 
       <SettingsGroup title="Content & Activity">
