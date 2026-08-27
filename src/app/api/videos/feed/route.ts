@@ -7,6 +7,7 @@ import { getFollowingIdSet } from "@/lib/social";
 import { getHashtagAffinity, getNegativeSignal, matchesKeywordFilter, diversifyByAuthor } from "@/lib/ranking";
 
 const PAGE_SIZE = 6;
+const CANDIDATE_POOL_SIZE = 300;
 
 export const GET = withErrorHandling(async (req: NextRequest) => {
   const tab = req.nextUrl.searchParams.get("tab") === "following" ? "following" : "foryou";
@@ -42,7 +43,10 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     ? await getNegativeSignal(viewer.id)
     : { videoIds: new Set<string>(), hashtagPenalty: new Map<string, number>(), creatorPenalty: new Map<string, number>() };
 
-  // For You: score-based ranking over the full published catalog.
+  // For You: score-based ranking over a bounded candidate pool — the most
+  // recent CANDIDATE_POOL_SIZE published videos. Freshness already decays to
+  // 0 past 72 hours, so this doesn't change what tends to rank highly; it
+  // just stops every feed request from scanning the entire video catalog.
   const all = await prisma.video.findMany({
     where: {
       status: "published",
@@ -50,6 +54,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       ...(negative.videoIds.size ? { id: { notIn: [...negative.videoIds] } } : {}),
     },
     include: videoInclude(viewer?.id),
+    orderBy: { createdAt: "desc" },
+    take: CANDIDATE_POOL_SIZE,
   });
 
   if (all.length === 0) return jsonOk({ videos: [], nextOffset: null, empty: true });

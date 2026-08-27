@@ -243,6 +243,7 @@ model Video {
 
   @@index([userId])
   @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 model NotInterested {
