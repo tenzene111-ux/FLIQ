@@ -82,6 +82,7 @@ model User {
   wallet             UserWallet?
   giftsSent          GiftTransaction[]         @relation("giftSender")
   giftsReceived      GiftTransaction[]         @relation("giftRecipient")
+  coinPurchases      CoinPurchase[]
 
   @@index([username])
 }
@@ -657,10 +658,43 @@ model Gift {
 model UserWallet {
   id        String   @id @default(cuid())
   userId    String   @unique
-  balance   Int      @default(500) // starter coins granted when the wallet row is first created — closed-loop, no real purchases
+  balance   Int      @default(500) // starter grant on first creation; increases via real Stripe purchases or received gifts
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CoinPackage {
+  id         String   @id @default(cuid())
+  name       String
+  coinAmount Int
+  priceCents Int
+  currency   String   @default("usd")
+  active     Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  purchases CoinPurchase[]
+}
+
+model CoinPurchase {
+  id                      String    @id @default(cuid())
+  userId                  String
+  packageId               String
+  stripeCheckoutSessionId String    @unique
+  stripePaymentIntentId   String?
+  coinAmount              Int
+  priceCents              Int
+  currency                String
+  status                  String    @default("pending") // pending | completed | failed | expired | refunded
+  createdAt               DateTime  @default(now())
+  completedAt             DateTime?
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package CoinPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([status])
 }
 
 model GiftTransaction {
