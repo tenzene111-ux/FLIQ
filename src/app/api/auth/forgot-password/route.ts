@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { prisma } from "@/lib/db";
 import { jsonError, jsonOk, checkRateLimit, withErrorHandling } from "@/lib/api";
 import { sendEmail, isDevMailer } from "@/lib/mailer";
+import { renderEmailHtml } from "@/lib/email-template";
 
 const schema = z.object({ email: z.string().email() });
 
@@ -28,11 +29,17 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     data: { resetToken, resetTokenExpires: new Date(Date.now() + 60 * 60 * 1000) },
   });
 
-  const resetLink = `/reset-password?token=${resetToken}`;
+  const resetLink = `${req.nextUrl.origin}/reset-password?token=${resetToken}`;
   await sendEmail({
     to: user.email,
     subject: "Reset your Fliq password",
-    html: `Click to reset your password: ${resetLink}`,
+    html: renderEmailHtml({
+      heading: "Reset your password",
+      bodyText: "We received a request to reset your Fliq password. This link expires in 1 hour.",
+      ctaLabel: "Reset password",
+      ctaUrl: resetLink,
+      footerNote: "If you didn't request this, you can safely ignore this email — your password won't change.",
+    }),
   });
 
   // Dev-mode convenience: hand back the token/link directly since there's no
