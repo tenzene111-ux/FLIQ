@@ -1,16 +1,25 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
+import { RedisService } from '../redis/redis.service.js';
 import { CreateVideoDto } from './dto/create-video.dto.js';
 import { ListVideosQuery } from './dto/list-videos.query.js';
 import { ALLOWED_CONTENT_TYPES, RequestUploadDto } from './dto/request-upload.dto.js';
 import { AttachMediaDto } from './dto/attach-media.dto.js';
+
+// Only the very first page at the default page size gets cached — that's
+// the overwhelming majority of feed traffic (every cold app open). Deeper
+// pages and non-default limits fan out into too many distinct keys to be
+// worth caching and just hit Postgres directly.
+const FEED_CACHE_KEY = 'feed:first:20';
+const FEED_CACHE_TTL_SECONDS = 15;
 
 @Injectable()
 export class VideosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly redis: RedisService,
   ) {}
 
   private async getOwnedVideo(id: string, requesterId: string) {
@@ -44,14 +53,25 @@ export class VideosService {
   }
 
   async listFeed(query: ListVideosQuery) {
+    const limit = query.limit ?? 20;
+    const cacheable = !query.cursor && limit === 20;
+
+    if (cacheable) {
+      const cached = await this.redis.getJson<{ videos: unknown[]; nextCursor: string | null }>(FEED_CACHE_KEY);
+      if (cached) return cached;
+    }
+
     const videos = await this.prisma.video.findMany({
       where: { status: 'published' },
       orderBy: { createdAt: 'desc' },
-      take: query.limit ?? 20,
+      take: limit,
       ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
       include: { user: { select: { id: true, username: true, displayName: true } } },
     });
-    return { videos, nextCursor: videos.length === (query.limit ?? 20) ? videos.at(-1)?.id : null };
+    const result = { videos, nextCursor: videos.length === limit ? videos.at(-1)?.id : null };
+
+    if (cacheable) await this.redis.setJson(FEED_CACHE_KEY, result, FEED_CACHE_TTL_SECONDS);
+    return result;
   }
 
   async listByUser(userId: string, query: ListVideosQuery) {
@@ -68,12 +88,15 @@ export class VideosService {
   // worker flipping status once HLS output is ready) until that step exists.
   async markPublished(id: string, requesterId: string) {
     await this.getOwnedVideo(id, requesterId);
-    return this.prisma.video.update({ where: { id }, data: { status: 'published' } });
+    const video = await this.prisma.video.update({ where: { id }, data: { status: 'published' } });
+    await this.redis.del(FEED_CACHE_KEY);
+    return video;
   }
 
   async remove(id: string, requesterId: string) {
     await this.getOwnedVideo(id, requesterId);
     await this.prisma.video.update({ where: { id }, data: { status: 'removed' } });
+    await this.redis.del(FEED_CACHE_KEY);
   }
 
   // Signs a direct-to-storage upload URL. The client PUTs the file straight
