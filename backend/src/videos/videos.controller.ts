@@ -2,6 +2,8 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } f
 import { VideosService } from './videos.service.js';
 import { CreateVideoDto } from './dto/create-video.dto.js';
 import { ListVideosQuery } from './dto/list-videos.query.js';
+import { RequestUploadDto } from './dto/request-upload.dto.js';
+import { AttachMediaDto } from './dto/attach-media.dto.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { RequestUser } from '../auth/jwt.strategy.js';
@@ -31,6 +33,26 @@ export class VideosController {
     const video = await this.videosService.findPublishedById(id);
     await this.videosService.incrementViewCount(id);
     return video;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/upload-url')
+  async requestUpload(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() dto: RequestUploadDto,
+  ) {
+    return this.videosService.requestUpload(id, user.id, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/attach-media')
+  async attachMedia(
+    @Param('id') id: string,
+    @CurrentUser() user: RequestUser,
+    @Body() dto: AttachMediaDto,
+  ) {
+    return this.videosService.attachMedia(id, user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
