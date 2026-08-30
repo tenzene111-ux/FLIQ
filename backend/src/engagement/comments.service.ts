@@ -1,10 +1,14 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 @Injectable()
 export class CommentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async create(userId: string, videoId: string, dto: CreateCommentDto) {
     const video = await this.prisma.video.findUnique({ where: { id: videoId } });
@@ -17,6 +21,13 @@ export class CommentsService {
       }),
       this.prisma.video.update({ where: { id: videoId }, data: { commentCount: { increment: 1 } } }),
     ]);
+    await this.notifications.notify({
+      userId: video.userId,
+      actorId: userId,
+      type: 'comment',
+      videoId,
+      commentId: comment.id,
+    });
     return comment;
   }
 

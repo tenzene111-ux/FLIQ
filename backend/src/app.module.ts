@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { VideosModule } from './videos/videos.module.js';
 import { FollowsModule } from './follows/follows.module.js';
 import { EngagementModule } from './engagement/engagement.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { EngagementModule } from './engagement/engagement.module.js';
     RedisModule,
     QueueModule,
     AuthModule,
+    NotificationsModule,
     VideosModule,
     FollowsModule,
     EngagementModule,

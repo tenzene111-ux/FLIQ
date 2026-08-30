@@ -1,9 +1,13 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { NotificationsService } from '../notifications/notifications.service.js';
 
 @Injectable()
 export class LikesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async like(userId: string, videoId: string) {
     const video = await this.prisma.video.findUnique({ where: { id: videoId } });
@@ -18,6 +22,7 @@ export class LikesService {
       if (this.isUniqueViolation(err)) throw new ConflictException('Already liked this video');
       throw err;
     }
+    await this.notifications.notify({ userId: video.userId, actorId: userId, type: 'like', videoId });
     return { ok: true };
   }
 
