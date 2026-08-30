@@ -31,7 +31,7 @@ export class VideosController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const video = await this.videosService.findPublishedById(id);
-    await this.videosService.incrementViewCount(id);
+    await this.videosService.queueViewIncrement(id);
     return video;
   }
 

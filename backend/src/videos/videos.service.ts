@@ -1,4 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService } from '../storage/storage.service.js';
 import { RedisService } from '../redis/redis.service.js';
@@ -6,6 +8,7 @@ import { CreateVideoDto } from './dto/create-video.dto.js';
 import { ListVideosQuery } from './dto/list-videos.query.js';
 import { ALLOWED_CONTENT_TYPES, RequestUploadDto } from './dto/request-upload.dto.js';
 import { AttachMediaDto } from './dto/attach-media.dto.js';
+import { VIDEO_VIEWS_QUEUE } from './queue-names.js';
 
 // Only the very first page at the default page size gets cached — that's
 // the overwhelming majority of feed traffic (every cold app open). Deeper
@@ -20,6 +23,7 @@ export class VideosService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly redis: RedisService,
+    @InjectQueue(VIDEO_VIEWS_QUEUE) private readonly viewsQueue: Queue,
   ) {}
 
   private async getOwnedVideo(id: string, requesterId: string) {
@@ -135,6 +139,13 @@ export class VideosService {
         : { thumbnailUrl: publicUrl };
 
     return this.prisma.video.update({ where: { id }, data });
+  }
+
+  // Fire-and-forget: a view is queued, not written synchronously, so a
+  // burst of viewers can't turn into a burst of blocking DB writes on the
+  // request path. The worker (ViewsProcessor) does the actual increment.
+  async queueViewIncrement(id: string) {
+    await this.viewsQueue.add('increment', { videoId: id });
   }
 
   async incrementViewCount(id: string) {
