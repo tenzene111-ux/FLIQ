@@ -21,6 +21,7 @@ model User {
   displayName  String
   isVerified   Boolean  @default(false)
   status       String   @default("active") // active | suspended | banned | deactivated
+  role         String   @default("user") // user | moderator | admin | super_admin
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

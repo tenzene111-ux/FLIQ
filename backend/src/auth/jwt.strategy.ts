@@ -14,6 +14,7 @@ export interface RequestUser {
   id: string;
   email: string;
   username: string;
+  role: string;
 }
 
 @Injectable()
@@ -36,6 +37,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user || user.status !== 'active') {
       throw new UnauthorizedException('Invalid session');
     }
-    return { id: user.id, email: user.email, username: user.username };
+    return { id: user.id, email: user.email, username: user.username, role: user.role };
   }
 }

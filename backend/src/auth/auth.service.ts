@@ -25,6 +25,7 @@ export interface PublicUser {
   username: string;
   displayName: string;
   isVerified: boolean;
+  role: string;
 }
 
 export interface SessionMeta {
@@ -46,6 +47,7 @@ export class AuthService {
     username: string;
     displayName: string;
     isVerified: boolean;
+    role: string;
   }): PublicUser {
     return {
       id: user.id,
@@ -53,6 +55,7 @@ export class AuthService {
       username: user.username,
       displayName: user.displayName,
       isVerified: user.isVerified,
+      role: user.role,
     };
   }
 

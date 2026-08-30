@@ -18,9 +18,15 @@ export class VideosController {
     return this.videosService.create(user.id, dto);
   }
 
-  @Get('feed')
-  async feed(@Query() query: ListVideosQuery) {
+  @Get('feed/for-you')
+  async forYouFeed(@Query() query: ListVideosQuery) {
     return this.videosService.listFeed(query);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('feed/following')
+  async followingFeed(@CurrentUser() user: RequestUser, @Query() query: ListVideosQuery) {
+    return this.videosService.listFollowingFeed(user.id, query);
   }
 
   @Get('user/:userId')
@@ -58,7 +64,7 @@ export class VideosController {
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    await this.videosService.remove(id, user.id);
+    await this.videosService.remove(id, user);
     return { ok: true };
   }
 }

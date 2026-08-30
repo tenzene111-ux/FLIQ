@@ -9,6 +9,7 @@ import { ListVideosQuery } from './dto/list-videos.query.js';
 import { ALLOWED_CONTENT_TYPES, RequestUploadDto } from './dto/request-upload.dto.js';
 import { AttachMediaDto } from './dto/attach-media.dto.js';
 import { VIDEO_VIEWS_QUEUE, VIDEO_ENCODE_QUEUE } from './queue-names.js';
+import { roleAtLeast } from '../auth/role-rank.js';
 
 // Only the very first page at the default page size gets cached — that's
 // the overwhelming majority of feed traffic (every cold app open). Deeper
@@ -79,6 +80,25 @@ export class VideosService {
     return result;
   }
 
+  // Chronological videos from accounts the requester follows. No caching
+  // here — unlike the for-you feed, this is different per requester, so a
+  // shared cache key wouldn't help without per-user keys (not worth it yet
+  // at this scale).
+  async listFollowingFeed(requesterId: string, query: ListVideosQuery) {
+    const limit = query.limit ?? 20;
+    const videos = await this.prisma.video.findMany({
+      where: {
+        status: 'published',
+        user: { followers: { some: { followerId: requesterId } } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      include: { user: { select: { id: true, username: true, displayName: true } } },
+    });
+    return { videos, nextCursor: videos.length === limit ? videos.at(-1)?.id : null };
+  }
+
   async listByUser(userId: string, query: ListVideosQuery) {
     const videos = await this.prisma.video.findMany({
       where: { userId, status: 'published' },
@@ -89,8 +109,15 @@ export class VideosService {
     return { videos, nextCursor: videos.length === (query.limit ?? 20) ? videos.at(-1)?.id : null };
   }
 
-  async remove(id: string, requesterId: string) {
-    await this.getOwnedVideo(id, requesterId);
+  // Owners can remove their own videos; moderators and up can remove any
+  // video (content moderation), not just their own.
+  async remove(id: string, requester: { id: string; role: string }) {
+    const video = await this.prisma.video.findUnique({ where: { id } });
+    if (!video) throw new NotFoundException('Video not found');
+    const isOwner = video.userId === requester.id;
+    const isModerator = roleAtLeast(requester.role, 'moderator');
+    if (!isOwner && !isModerator) throw new ForbiddenException("Not this video's owner");
+
     await this.prisma.video.update({ where: { id }, data: { status: 'removed' } });
     await this.redis.del(FEED_CACHE_KEY);
   }
