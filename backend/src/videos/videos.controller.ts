@@ -56,12 +56,6 @@ export class VideosController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch(':id/publish')
-  async publish(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.videosService.markPublished(id, user.id);
-  }
-
-  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     await this.videosService.remove(id, user.id);

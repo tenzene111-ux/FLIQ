@@ -60,7 +60,7 @@ model Video {
   durationMs   Int?
   width        Int?
   height       Int?
-  status       String   @default("processing") // processing | published | removed
+  status       String   @default("processing") // processing | published | removed | failed
   viewCount    Int      @default(0)
   likeCount    Int      @default(0)
   commentCount Int      @default(0)

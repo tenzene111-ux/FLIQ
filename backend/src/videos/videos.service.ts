@@ -8,13 +8,13 @@ import { CreateVideoDto } from './dto/create-video.dto.js';
 import { ListVideosQuery } from './dto/list-videos.query.js';
 import { ALLOWED_CONTENT_TYPES, RequestUploadDto } from './dto/request-upload.dto.js';
 import { AttachMediaDto } from './dto/attach-media.dto.js';
-import { VIDEO_VIEWS_QUEUE } from './queue-names.js';
+import { VIDEO_VIEWS_QUEUE, VIDEO_ENCODE_QUEUE } from './queue-names.js';
 
 // Only the very first page at the default page size gets cached — that's
 // the overwhelming majority of feed traffic (every cold app open). Deeper
 // pages and non-default limits fan out into too many distinct keys to be
 // worth caching and just hit Postgres directly.
-const FEED_CACHE_KEY = 'feed:first:20';
+export const FEED_CACHE_KEY = 'feed:first:20';
 const FEED_CACHE_TTL_SECONDS = 15;
 
 @Injectable()
@@ -24,6 +24,7 @@ export class VideosService {
     private readonly storage: StorageService,
     private readonly redis: RedisService,
     @InjectQueue(VIDEO_VIEWS_QUEUE) private readonly viewsQueue: Queue,
+    @InjectQueue(VIDEO_ENCODE_QUEUE) private readonly encodeQueue: Queue,
   ) {}
 
   private async getOwnedVideo(id: string, requesterId: string) {
@@ -38,9 +39,9 @@ export class VideosService {
     return `videos/${videoId}/${filename}.${extension}`;
   }
 
-  // Registers the video's metadata row. It has no playable file yet — that
-  // arrives once object storage + the encode worker land (next roadmap
-  // steps) and flip status to "published" via markPublished.
+  // Registers the video's metadata row. It has no playable file yet —
+  // attachMedia (kind: video) enqueues the real encode job that fills in
+  // videoUrl and flips status to "published" once HLS output is ready.
   async create(userId: string, dto: CreateVideoDto) {
     return this.prisma.video.create({
       data: { userId, caption: dto.caption ?? '' },
@@ -88,15 +89,6 @@ export class VideosService {
     return { videos, nextCursor: videos.length === (query.limit ?? 20) ? videos.at(-1)?.id : null };
   }
 
-  // Manual publish endpoint — a stand-in for the real trigger (the encode
-  // worker flipping status once HLS output is ready) until that step exists.
-  async markPublished(id: string, requesterId: string) {
-    await this.getOwnedVideo(id, requesterId);
-    const video = await this.prisma.video.update({ where: { id }, data: { status: 'published' } });
-    await this.redis.del(FEED_CACHE_KEY);
-    return video;
-  }
-
   async remove(id: string, requesterId: string) {
     await this.getOwnedVideo(id, requesterId);
     await this.prisma.video.update({ where: { id }, data: { status: 'removed' } });
@@ -120,7 +112,9 @@ export class VideosService {
 
   // Trusts nothing the client claims about the upload — HEADs the object in
   // storage first, so attach-media can't be used to point a video at a file
-  // that was never actually uploaded.
+  // that was never actually uploaded. For the video kind, this only starts
+  // encoding; videoUrl/dimensions/duration and the publish flip all come
+  // from the real FFmpeg worker once it finishes, not from client input.
   async attachMedia(id: string, requesterId: string, dto: AttachMediaDto) {
     await this.getOwnedVideo(id, requesterId);
 
@@ -132,13 +126,32 @@ export class VideosService {
     const uploaded = await this.storage.exists(dto.key);
     if (!uploaded) throw new BadRequestException('Upload not found — finish uploading before attaching it');
 
-    const publicUrl = this.storage.getPublicUrl(dto.key);
-    const data =
-      dto.kind === 'video'
-        ? { videoUrl: publicUrl, durationMs: dto.durationMs, width: dto.width, height: dto.height }
-        : { thumbnailUrl: publicUrl };
+    if (dto.kind === 'thumbnail') {
+      return this.prisma.video.update({
+        where: { id },
+        data: { thumbnailUrl: this.storage.getPublicUrl(dto.key) },
+      });
+    }
 
-    return this.prisma.video.update({ where: { id }, data });
+    await this.encodeQueue.add('encode', { videoId: id, sourceKey: dto.key });
+    return this.prisma.video.update({ where: { id }, data: { status: 'processing' } });
+  }
+
+  // Called by EncodeProcessor once FFmpeg has produced real HLS output.
+  async finalizeEncodedVideo(
+    id: string,
+    data: { videoUrl: string; durationMs: number; width: number; height: number },
+  ) {
+    const video = await this.prisma.video.update({
+      where: { id },
+      data: { ...data, status: 'published' },
+    });
+    await this.redis.del(FEED_CACHE_KEY);
+    return video;
+  }
+
+  async markEncodeFailed(id: string) {
+    await this.prisma.video.update({ where: { id }, data: { status: 'failed' } });
   }
 
   // Fire-and-forget: a view is queued, not written synchronously, so a
