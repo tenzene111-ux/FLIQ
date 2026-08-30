@@ -1,0 +1,46 @@
+// Fliq backend — Prisma schema.
+// Postgres. Real auth model: hashed passwords, hashed+revocable refresh
+// tokens (so logout/"log out everywhere" actually works — no stateless-JWT
+// session that lives on until expiry regardless of logout).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  username     String   @unique
+  displayName  String
+  isVerified   Boolean  @default(false)
+  status       String   @default("active") // active | suspended | banned | deactivated
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@index([email])
+  @@index([username])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique // sha256 of the raw refresh token — never store it plaintext
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
