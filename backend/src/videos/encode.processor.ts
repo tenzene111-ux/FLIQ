@@ -14,6 +14,13 @@ interface EncodeJobData {
   sourceKey: string;
 }
 
+// 1 day, not "immutable" — the same HLS key path can technically be
+// overwritten by a future re-encode of the same video, so this isn't
+// content-addressed the way a hash-named asset would be. A CDN in front
+// of storage uses this to serve views from the edge instead of hitting
+// origin on every playback.
+const HLS_CACHE_CONTROL = 'public, max-age=86400';
+
 // The real transcode pipeline: download the raw upload, run FFmpeg to
 // produce HLS, upload the output, and publish — all driven by files on
 // disk in a scratch directory that's always cleaned up.
@@ -47,10 +54,11 @@ export class EncodeProcessor extends WorkerHost {
         playlistKey,
         await readFile(playlistPath),
         'application/vnd.apple.mpegurl',
+        HLS_CACHE_CONTROL,
       );
       for (const segmentPath of segmentPaths) {
         const segmentKey = `${hlsPrefix}/${path.basename(segmentPath)}`;
-        await this.storage.upload(segmentKey, await readFile(segmentPath), 'video/mp2t');
+        await this.storage.upload(segmentKey, await readFile(segmentPath), 'video/mp2t', HLS_CACHE_CONTROL);
       }
 
       await this.videosService.finalizeEncodedVideo(videoId, {

@@ -77,7 +77,18 @@ export class StorageService {
   // Server-side upload — used by the encode worker to push HLS output
   // back to storage. Unlike getUploadUrl, this goes straight through our
   // own storage credentials rather than a client-facing presigned URL.
-  async upload(key: string, body: Buffer, contentType: string): Promise<void> {
-    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }));
+  // cacheControl matters here: it's what a CDN sitting in front of
+  // STORAGE_PUBLIC_URL actually uses to decide how long to cache the
+  // object at the edge instead of re-fetching from origin on every view.
+  async upload(key: string, body: Buffer, contentType: string, cacheControl?: string): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: cacheControl,
+      }),
+    );
   }
 }
