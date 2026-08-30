@@ -23,6 +23,9 @@ import { parseDurationMs } from './token.util.js';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  // Re-export PassportModule so any feature module using JwtAuthGuard just
+  // needs to `imports: [AuthModule]` — @nestjs/passport's AuthGuard mixin
+  // needs PassportModule registered wherever it's used, not only here.
+  exports: [AuthService, PassportModule],
 })
 export class AuthModule {}
