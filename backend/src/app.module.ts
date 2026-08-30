@@ -11,6 +11,8 @@ import { VideosModule } from './videos/videos.module.js';
 import { FollowsModule } from './follows/follows.module.js';
 import { EngagementModule } from './engagement/engagement.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { HashtagsModule } from './hashtags/hashtags.module.js';
+import { SearchModule } from './search/search.module.js';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { NotificationsModule } from './notifications/notifications.module.js';
     QueueModule,
     AuthModule,
     NotificationsModule,
+    HashtagsModule,
+    SearchModule,
     VideosModule,
     FollowsModule,
     EngagementModule,

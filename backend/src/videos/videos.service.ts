@@ -10,6 +10,7 @@ import { ALLOWED_CONTENT_TYPES, RequestUploadDto } from './dto/request-upload.dt
 import { AttachMediaDto } from './dto/attach-media.dto.js';
 import { VIDEO_VIEWS_QUEUE, VIDEO_ENCODE_QUEUE } from './queue-names.js';
 import { roleAtLeast } from '../auth/role-rank.js';
+import { HashtagsService } from '../hashtags/hashtags.service.js';
 
 // Only the very first page at the default page size gets cached — that's
 // the overwhelming majority of feed traffic (every cold app open). Deeper
@@ -26,6 +27,7 @@ export class VideosService {
     private readonly redis: RedisService,
     @InjectQueue(VIDEO_VIEWS_QUEUE) private readonly viewsQueue: Queue,
     @InjectQueue(VIDEO_ENCODE_QUEUE) private readonly encodeQueue: Queue,
+    private readonly hashtags: HashtagsService,
   ) {}
 
   private async getOwnedVideo(id: string, requesterId: string) {
@@ -44,9 +46,10 @@ export class VideosService {
   // attachMedia (kind: video) enqueues the real encode job that fills in
   // videoUrl and flips status to "published" once HLS output is ready.
   async create(userId: string, dto: CreateVideoDto) {
-    return this.prisma.video.create({
-      data: { userId, caption: dto.caption ?? '' },
-    });
+    const caption = dto.caption ?? '';
+    const video = await this.prisma.video.create({ data: { userId, caption } });
+    await this.hashtags.linkToVideo(video.id, caption);
+    return video;
   }
 
   async findPublishedById(id: string) {

@@ -6,10 +6,12 @@ import { ViewsProcessor } from './views.processor.js';
 import { EncodeProcessor } from './encode.processor.js';
 import { VIDEO_VIEWS_QUEUE, VIDEO_ENCODE_QUEUE } from './queue-names.js';
 import { AuthModule } from '../auth/auth.module.js';
+import { HashtagsModule } from '../hashtags/hashtags.module.js';
 
 @Module({
   imports: [
     AuthModule,
+    HashtagsModule,
     BullModule.registerQueue({ name: VIDEO_VIEWS_QUEUE }, { name: VIDEO_ENCODE_QUEUE }),
   ],
   controllers: [VideosController],
