@@ -22,6 +22,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate sub-projects with their own toolchains (NestJS/oxlint,
+    // Flutter/Dart) — not part of this Next.js app's lint target.
+    "backend/**",
+    "mobile/**",
   ]),
 ]);
 

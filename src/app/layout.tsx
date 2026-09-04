@@ -19,6 +19,16 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/icon.svg",
+    apple: "/apple-touch-icon.png",
+  },
+  // Without these, iOS ignores the manifest's display:standalone when the
+  // page is added to the home screen — it reopens as a regular Safari tab
+  // (address bar, no safe-area handling), which is the "not fitted like an
+  // app" symptom. These are what actually make iOS launch it full-screen.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Fliq",
   },
 };
 
@@ -27,6 +37,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
 
