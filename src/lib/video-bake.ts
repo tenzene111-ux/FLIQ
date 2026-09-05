@@ -6,6 +6,9 @@
 // MediaRecorder + Web Audio API mixing. This lets Fliq's editor apply real
 // edits entirely in the browser with no server-side transcoding pipeline.
 
+import { getFaceLandmarker } from "@/lib/face-tracking";
+import { drawArEffect, drawFaceSmoothing, getBeautyFallbackCss } from "@/lib/ar-effects";
+
 export interface BakeClip {
   url: string;
   trimStart?: number;
@@ -35,6 +38,8 @@ export interface BakeOptions {
   textLayers?: BakeTextLayer[];
   stickerLayers?: BakeStickerLayer[];
   zoom?: number;
+  arEffectId?: string;
+  beauty?: number; // 0-100, real face-aware smoothing when a face is detected
   width?: number;
   height?: number;
   fps?: number;
@@ -94,6 +99,13 @@ export async function bakeVideo(opts: BakeOptions): Promise<BakeResult> {
   const ctx2d = canvas.getContext("2d");
   if (!ctx2d) throw new Error("Canvas not supported");
   const ctx: CanvasRenderingContext2D = ctx2d;
+
+  const wantsFaceEffects = (opts.arEffectId && opts.arEffectId !== "none") || (opts.beauty ?? 0) > 0;
+  const faceLandmarker = wantsFaceEffects ? await getFaceLandmarker() : null;
+  // No face tracking available at all (offline, unsupported browser) — fall
+  // back to a blanket blur for Beauty so the slider still does something;
+  // AR effects need real landmarks and are silently skipped rather than faked.
+  const beautyFallbackCss = !faceLandmarker && (opts.beauty ?? 0) > 0 ? getBeautyFallbackCss(opts.beauty!) : "";
 
   const videos = await Promise.all(opts.clips.map((c) => loadVideo(c.url)));
 
@@ -180,13 +192,22 @@ export async function bakeVideo(opts: BakeOptions): Promise<BakeResult> {
 
     const next = videos[i + 1];
     let nextStarted = false;
+    const effectiveFilterCss = [opts.filterCss, beautyFallbackCss].filter(Boolean).join(" ");
 
     await new Promise<void>((resolveClip) => {
       function draw() {
         const remainingMs = ((end - v.currentTime) / opts.speed) * 1000;
         const inTransition = opts.transition === "fade" && next && remainingMs <= TRANSITION_MS && remainingMs >= 0;
 
-        drawFrame(ctx, v, width, height, opts.filterCss, opts.zoom ?? 1);
+        drawFrame(ctx, v, width, height, effectiveFilterCss, opts.zoom ?? 1);
+
+        if (faceLandmarker) {
+          const landmarks = faceLandmarker.detectForVideo(v, performance.now()).faceLandmarks?.[0] ?? null;
+          if (landmarks) {
+            drawFaceSmoothing(ctx, landmarks, width, height, opts.beauty ?? 0, false);
+            drawArEffect(ctx, opts.arEffectId ?? "none", landmarks, width, height, false);
+          }
+        }
 
         if (inTransition) {
           if (!nextStarted) {
@@ -198,7 +219,7 @@ export async function bakeVideo(opts: BakeOptions): Promise<BakeResult> {
           const alpha = 1 - Math.max(0, remainingMs) / TRANSITION_MS;
           ctx.save();
           ctx.globalAlpha = Math.min(1, Math.max(0, alpha));
-          drawFrame(ctx, next, width, height, opts.filterCss, opts.zoom ?? 1);
+          drawFrame(ctx, next, width, height, effectiveFilterCss, opts.zoom ?? 1);
           ctx.restore();
         }
 

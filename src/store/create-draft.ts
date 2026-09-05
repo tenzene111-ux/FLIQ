@@ -33,13 +33,8 @@ export const FILTER_PRESETS = [
   { id: "soft", label: "Soft", css: "brightness(1.08) contrast(0.92) saturate(1.05)" },
 ] as const;
 
-export function buildFilterCss(filterId: string, beauty: number): string {
-  const preset = FILTER_PRESETS.find((f) => f.id === filterId);
-  const parts = [preset?.css || ""];
-  if (beauty > 0) {
-    parts.push(`blur(${(beauty / 100) * 0.6}px) brightness(${1 + (beauty / 100) * 0.08}) contrast(${1 - (beauty / 100) * 0.05})`);
-  }
-  return parts.filter(Boolean).join(" ");
+export function buildFilterCss(filterId: string): string {
+  return FILTER_PRESETS.find((f) => f.id === filterId)?.css || "";
 }
 
 interface CreateDraftState {
@@ -49,6 +44,7 @@ interface CreateDraftState {
   filterId: string;
   beauty: number; // 0-100
   zoom: number;
+  arEffectId: string;
   muteOriginal: boolean;
   transition: "cut" | "fade";
   textLayers: TextLayer[];
@@ -73,6 +69,7 @@ interface CreateDraftState {
   setFilterId: (id: string) => void;
   setBeauty: (n: number) => void;
   setZoom: (n: number) => void;
+  setArEffectId: (id: string) => void;
   setMuteOriginal: (v: boolean) => void;
   setTransition: (t: "cut" | "fade") => void;
   addTextLayer: (l: TextLayer) => void;
@@ -98,6 +95,7 @@ const initialState = {
   filterId: "none",
   beauty: 0,
   zoom: 1,
+  arEffectId: "none",
   muteOriginal: false,
   transition: "cut" as const,
   textLayers: [] as TextLayer[],
@@ -126,6 +124,7 @@ export const useCreateDraftStore = create<CreateDraftState>((set) => ({
   setFilterId: (id) => set({ filterId: id }),
   setBeauty: (n) => set({ beauty: n }),
   setZoom: (n) => set({ zoom: n }),
+  setArEffectId: (arEffectId) => set({ arEffectId }),
   setMuteOriginal: (v) => set({ muteOriginal: v }),
   setTransition: (t) => set({ transition: t }),
   addTextLayer: (l) => set((s) => ({ textLayers: [...s.textLayers, l] })),

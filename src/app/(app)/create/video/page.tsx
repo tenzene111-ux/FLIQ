@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { useCameraRecorder } from "@/hooks/useCameraRecorder";
 import { useCreateDraftStore, FILTER_PRESETS, buildFilterCss } from "@/store/create-draft";
+import { AR_EFFECTS, drawArEffect } from "@/lib/ar-effects";
+import { getFaceLandmarker } from "@/lib/face-tracking";
 import { MAX_VIDEO_DURATIONS, RECORD_SPEEDS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { nanoid } from "nanoid";
@@ -32,7 +34,7 @@ import { useAuthStore } from "@/store/auth";
 import { trackCreateEvent } from "@/lib/create-events";
 import { DraftExitSheet } from "@/components/create/DraftExitSheet";
 
-type Panel = "speed" | "filters" | "beauty" | "timer" | null;
+type Panel = "speed" | "filters" | "beauty" | "timer" | "effects" | null;
 
 export default function CreatePage() {
   return (
@@ -49,6 +51,7 @@ function CreatePageInner() {
   const draft = useCreateDraftStore();
   const user = useAuthStore((s) => s.user);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const arCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const [panel, setPanel] = useState<Panel>(null);
   const [timerSec, setTimerSec] = useState<0 | 3 | 10>(0);
@@ -72,6 +75,57 @@ function CreatePageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Live AR effect preview: draws the mirrored camera feed onto a canvas and
+  // overlays the selected effect anchored to real-time detected face
+  // landmarks, purely for on-screen feedback while framing the shot. The
+  // effect actually gets baked into the exported video by bakeVideo() (see
+  // saveDraftAndExit / the editor's export step), which re-runs the same
+  // face tracking against the recorded clip.
+  useEffect(() => {
+    if (draft.arEffectId === "none") return;
+    let raf = 0;
+    let cancelled = false;
+    let landmarker: Awaited<ReturnType<typeof getFaceLandmarker>> = null;
+    getFaceLandmarker().then((lm) => {
+      if (!cancelled) landmarker = lm;
+    });
+
+    function render() {
+      const video = cam.videoRef.current;
+      const canvas = arCanvasRef.current;
+      if (video && canvas && video.videoWidth) {
+        if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+        if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        const mirrored = cam.facing === "user";
+        if (ctx) {
+          const cssFilter = FILTER_PRESETS.find((f) => f.id === draft.filterId)?.css ?? "";
+          ctx.save();
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          if (mirrored) ctx.scale(-1, 1);
+          ctx.scale(draft.zoom, draft.zoom);
+          ctx.translate(-canvas.width / 2, -canvas.height / 2);
+          ctx.filter = cssFilter || "none";
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
+          ctx.filter = "none";
+
+          if (landmarker) {
+            const landmarks = landmarker.detectForVideo(video, performance.now()).faceLandmarks?.[0] ?? null;
+            drawArEffect(ctx, draft.arEffectId, landmarks, canvas.width, canvas.height, mirrored);
+          }
+        }
+      }
+      raf = requestAnimationFrame(render);
+    }
+    raf = requestAnimationFrame(render);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.arEffectId, draft.filterId, draft.zoom, cam.facing]);
+
   function requestExit(target: string) {
     if (draft.clips.length > 0) {
       setExitTarget(target);
@@ -86,10 +140,12 @@ function CreatePageInner() {
       const result = await bakeVideo({
         clips: draft.clips.map((c) => ({ url: c.url })),
         speed: draft.speed,
-        filterCss: buildFilterCss(draft.filterId, draft.beauty),
+        filterCss: buildFilterCss(draft.filterId),
         muteOriginal: false,
         transition: "cut",
         zoom: draft.zoom,
+        arEffectId: draft.arEffectId,
+        beauty: draft.beauty,
       });
       await uploadVideoDraft(result.blob, { duration: result.duration || totalClipSeconds, soundId: draft.soundId });
       trackCreateEvent("DRAFT_SAVED", { from: "camera" });
@@ -231,17 +287,20 @@ function CreatePageInner() {
             </button>
           </div>
         ) : (
-          <video
-            ref={cam.videoRef}
-            autoPlay
-            muted
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{
-              filter: filterCss || undefined,
-              transform: `${cam.facing === "user" ? "scaleX(-1) " : ""}scale(${draft.zoom})`,
-            }}
-          />
+          <>
+            <video
+              ref={cam.videoRef}
+              autoPlay
+              muted
+              playsInline
+              className={cn("absolute inset-0 w-full h-full object-cover", draft.arEffectId !== "none" && "invisible")}
+              style={{
+                filter: filterCss || undefined,
+                transform: `${cam.facing === "user" ? "scaleX(-1) " : ""}scale(${draft.zoom})`,
+              }}
+            />
+            {draft.arEffectId !== "none" && <canvas ref={arCanvasRef} className="absolute inset-0 w-full h-full object-cover" />}
+          </>
         )}
 
         {grid && (
@@ -335,6 +394,15 @@ function CreatePageInner() {
             ))}
           </PanelBar>
         )}
+        {panel === "effects" && (
+          <PanelBar wide>
+            {AR_EFFECTS.map((effect) => (
+              <PanelChip key={effect.id} active={draft.arEffectId === effect.id} onClick={() => draft.setArEffectId(effect.id)}>
+                {effect.emoji} {effect.label}
+              </PanelChip>
+            ))}
+          </PanelBar>
+        )}
         {panel === "beauty" && (
           <div className="absolute bottom-40 inset-x-6 z-10 glass rounded-xl px-4 py-3">
             <div className="flex items-center justify-between text-xs text-white mb-1.5">
@@ -374,10 +442,12 @@ function CreatePageInner() {
       <div className="relative z-10 bg-black pb-[max(env(safe-area-inset-bottom),18px)] pt-4">
         <div className="flex items-center justify-between px-8">
           <button
-            onClick={() => toast("info", "Effects coming soon — try Filters for now")}
+            onClick={() => setPanel(panel === "effects" ? null : "effects")}
             className="flex flex-col items-center gap-1.5 w-16 text-white"
           >
-            <span className="w-11 h-11 rounded-2xl bg-surface-3 flex items-center justify-center">😊</span>
+            <span className={cn("w-11 h-11 rounded-2xl flex items-center justify-center text-xl", draft.arEffectId !== "none" ? "bg-white" : "bg-surface-3")}>
+              {draft.arEffectId !== "none" ? AR_EFFECTS.find((e) => e.id === draft.arEffectId)?.emoji : "😊"}
+            </span>
             <span className="text-[11px]">Effects</span>
           </button>
 

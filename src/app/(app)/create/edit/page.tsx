@@ -22,6 +22,7 @@ import {
   Settings2,
 } from "lucide-react";
 import { useCreateDraftStore, FILTER_PRESETS, buildFilterCss, type TextLayer, type StickerLayer } from "@/store/create-draft";
+import { getBeautyFallbackCss } from "@/lib/ar-effects";
 import { bakeVideo } from "@/lib/video-bake";
 import { RECORD_SPEEDS } from "@/lib/constants";
 import { Sheet } from "@/components/ui/Sheet";
@@ -95,7 +96,7 @@ export default function EditorPage() {
   async function saveDraftAndExit() {
     setSavingDraft(true);
     try {
-      const filterCss = buildFilterCss(draft.filterId, draft.beauty);
+      const filterCss = buildFilterCss(draft.filterId);
       const clipsForBake = draft.clips.map((c, i) => ({
         url: c.url,
         trimStart: isSingleClip && i === 0 ? trimStart : undefined,
@@ -111,6 +112,8 @@ export default function EditorPage() {
         textLayers: draft.textLayers,
         stickerLayers: draft.stickerLayers,
         zoom: draft.zoom,
+        arEffectId: draft.arEffectId,
+        beauty: draft.beauty,
       });
       await uploadVideoDraft(result.blob, {
         duration: result.duration || draft.clips.reduce((s, c) => s + c.duration, 0),
@@ -279,7 +282,7 @@ export default function EditorPage() {
     setBaking(true);
     setBakeProgress(0);
     try {
-      const filterCss = buildFilterCss(draft.filterId, draft.beauty);
+      const filterCss = buildFilterCss(draft.filterId);
       const clipsForBake = draft.clips.map((c, i) => ({
         url: c.url,
         trimStart: isSingleClip && i === 0 ? trimStart : undefined,
@@ -295,6 +298,8 @@ export default function EditorPage() {
         textLayers: draft.textLayers,
         stickerLayers: draft.stickerLayers,
         zoom: draft.zoom,
+        arEffectId: draft.arEffectId,
+        beauty: draft.beauty,
         width: exportRes.w,
         height: exportRes.h,
         fps,
@@ -377,7 +382,7 @@ export default function EditorPage() {
           playsInline
           muted={draft.muteOriginal}
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ filter: buildFilterCss(draft.filterId, draft.beauty) || undefined, transform: `scale(${draft.zoom})` }}
+          style={{ filter: [buildFilterCss(draft.filterId), getBeautyFallbackCss(draft.beauty)].filter(Boolean).join(" ") || undefined, transform: `scale(${draft.zoom})` }}
           onLoadedMetadata={handleLoadedMetadata}
           onTimeUpdate={handleTimeUpdate}
           onEnded={handleEnded}
