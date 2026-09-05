@@ -41,6 +41,7 @@ export function videoInclude(viewerId?: string | null) {
     hashtags: { include: { hashtag: true } },
     analytics: true,
     duetOf: { select: { id: true, user: { select: publicUserSelect } } },
+    stitchOf: { select: { id: true, user: { select: publicUserSelect } } },
     photos: { orderBy: { order: "asc" } },
     _count: { select: { likes: true, comments: true, shares: true, saves: true, reposts: true } },
     likes: viewerId ? { where: { userId: viewerId }, select: { id: true } } : false,
@@ -71,6 +72,7 @@ export function serializeVideo(v: VideoWithRelations, followingIds?: Set<string>
     privacy: v.privacy,
     allowComments: v.allowComments,
     allowDuet: v.allowDuet,
+    allowStitch: v.allowStitch,
     allowDownload: v.allowDownload,
     allowSoundReuse: v.allowSoundReuse,
     allowReuse: v.allowReuse,
@@ -80,6 +82,7 @@ export function serializeVideo(v: VideoWithRelations, followingIds?: Set<string>
     createdAt: v.createdAt.toISOString(),
     user: serializeUserBrief(v.user),
     duetOf: v.duetOf ? { id: v.duetOf.id, user: serializeUserBrief(v.duetOf.user) } : null,
+    stitchOf: v.stitchOf ? { id: v.stitchOf.id, user: serializeUserBrief(v.stitchOf.user) } : null,
     sound: v.sound ? serializeSound(v.sound) : null,
     hashtags: v.hashtags.map((h) => h.hashtag.tag),
     counts: {

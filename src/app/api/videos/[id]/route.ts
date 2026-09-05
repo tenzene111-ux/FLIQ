@@ -45,6 +45,7 @@ export const PATCH = withAuth<{ id: string }>(async (req: NextRequest, { user, p
   const privacy = ["everyone", "followers", "onlyMe"].includes(body.privacy) ? body.privacy : existing.privacy;
   const allowComments = typeof body.allowComments === "boolean" ? body.allowComments : existing.allowComments;
   const allowDuet = typeof body.allowDuet === "boolean" ? body.allowDuet : existing.allowDuet;
+  const allowStitch = typeof body.allowStitch === "boolean" ? body.allowStitch : existing.allowStitch;
   const allowDownload = typeof body.allowDownload === "boolean" ? body.allowDownload : existing.allowDownload;
   const allowSoundReuse = typeof body.allowSoundReuse === "boolean" ? body.allowSoundReuse : existing.allowSoundReuse;
   const allowReuse = typeof body.allowReuse === "boolean" ? body.allowReuse : existing.allowReuse;
@@ -61,6 +62,7 @@ export const PATCH = withAuth<{ id: string }>(async (req: NextRequest, { user, p
       privacy,
       allowComments,
       allowDuet,
+      allowStitch,
       allowDownload,
       allowSoundReuse,
       allowReuse,

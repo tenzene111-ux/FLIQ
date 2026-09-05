@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, MapPin, AtSign, Hash, RefreshCcw, Trash2, Repeat } from "lucide-react";
+import { ArrowLeft, MapPin, AtSign, Hash, RefreshCcw, Trash2, Repeat, Scissors } from "lucide-react";
 import { useCreateDraftStore } from "@/store/create-draft";
 import { useAuthStore } from "@/store/auth";
 import { Textarea, Input } from "@/components/ui/Input";
@@ -32,6 +32,7 @@ function PostPageInner() {
   const [privacy, setPrivacy] = useState<(typeof PRIVACY_OPTIONS)[number]["id"]>("everyone");
   const [allowComments, setAllowComments] = useState(true);
   const [allowDuet, setAllowDuet] = useState(true);
+  const [allowStitch, setAllowStitch] = useState(true);
   const [allowDownload, setAllowDownload] = useState(true);
   const [allowSoundReuse, setAllowSoundReuse] = useState(true);
   const [allowReuse, setAllowReuse] = useState(true);
@@ -55,6 +56,7 @@ function PostPageInner() {
           setPrivacy(d.video.privacy || "everyone");
           setAllowComments(d.video.allowComments);
           setAllowDuet(d.video.allowDuet);
+          setAllowStitch(d.video.allowStitch);
           setAllowDownload(d.video.allowDownload);
           setAllowSoundReuse(d.video.allowSoundReuse);
           setAllowReuse(d.video.allowReuse);
@@ -94,6 +96,7 @@ function PostPageInner() {
             privacy,
             allowComments,
             allowDuet,
+            allowStitch,
             allowDownload,
             allowSoundReuse,
             allowReuse,
@@ -119,12 +122,14 @@ function PostPageInner() {
         form.append("duration", String(Math.round(draft.finalDuration || 15)));
         if (draft.coverDataUrl) form.append("cover", draft.coverDataUrl);
         if (draft.duetOfId) form.append("duetOfId", draft.duetOfId);
+        if (draft.stitchOfId) form.append("stitchOfId", draft.stitchOfId);
       }
       form.append("caption", caption);
       form.append("location", location);
       form.append("privacy", privacy);
       form.append("allowComments", String(allowComments));
       form.append("allowDuet", String(allowDuet));
+      form.append("allowStitch", String(allowStitch));
       form.append("allowDownload", String(allowDownload));
       form.append("allowSoundReuse", String(allowSoundReuse));
       form.append("allowReuse", String(allowReuse));
@@ -247,6 +252,11 @@ function PostPageInner() {
               <Repeat size={12} /> Duet with @{draft.duetOfUsername}
             </p>
           )}
+          {draft.stitchOfId && draft.stitchOfUsername && (
+            <p className="text-xs text-fliq-cyan flex items-center gap-1">
+              <Scissors size={12} /> Stitch with @{draft.stitchOfUsername}
+            </p>
+          )}
           <Textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
@@ -322,6 +332,7 @@ function PostPageInner() {
       <div className="px-4 mt-6 flex flex-col gap-4">
         <ToggleRow label="Allow comments" value={allowComments} onChange={setAllowComments} />
         <ToggleRow label="Allow duet" value={allowDuet} onChange={setAllowDuet} />
+        <ToggleRow label="Allow stitch" value={allowStitch} onChange={setAllowStitch} />
         <ToggleRow label="Allow downloads" value={allowDownload} onChange={setAllowDownload} />
         <ToggleRow label="Allow content reuse (repost)" value={allowReuse} onChange={setAllowReuse} />
         {!isPhotoPost && <ToggleRow label="Allow sound reuse" value={allowSoundReuse} onChange={setAllowSoundReuse} />}

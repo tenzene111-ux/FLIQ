@@ -14,6 +14,7 @@ import {
   MapPin,
   Music2,
   SquareSplitHorizontal,
+  Scissors,
   Volume2,
   VolumeX,
 } from "lucide-react";
@@ -472,6 +473,16 @@ export function VideoCard({
             Duet with @{video.duetOf.user.username}
           </Link>
         )}
+        {video.stitchOf && (
+          <Link
+            href={`/video/${video.stitchOf.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="pointer-events-auto flex items-center gap-1.5 mt-1 text-xs text-white/90"
+          >
+            <Scissors size={12} className="shrink-0" />
+            Stitch with @{video.stitchOf.user.username}
+          </Link>
+        )}
         {video.location && (
           <p className="flex items-center gap-1 text-xs text-white/80 mt-1">
             <MapPin size={12} /> {video.location}
@@ -521,6 +532,16 @@ export function VideoCard({
               onClick={() => {
                 setMoreOpen(false);
                 requireAuth(() => router.push(`/create/duet/${video.id}`));
+              }}
+            />
+          )}
+          {!isOwn && video.allowStitch && video.postType !== "photo" && (
+            <MoreItem
+              icon={Scissors}
+              label="Stitch"
+              onClick={() => {
+                setMoreOpen(false);
+                requireAuth(() => router.push(`/create/stitch/${video.id}`));
               }}
             />
           )}

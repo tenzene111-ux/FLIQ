@@ -31,6 +31,7 @@ export interface VideoDTO {
   privacy: string;
   allowComments: boolean;
   allowDuet: boolean;
+  allowStitch: boolean;
   allowDownload: boolean;
   allowSoundReuse: boolean;
   allowReuse: boolean;
@@ -41,6 +42,7 @@ export interface VideoDTO {
   user: UserBrief;
   sound: SoundDTO | null;
   duetOf: { id: string; user: UserBrief } | null;
+  stitchOf: { id: string; user: UserBrief } | null;
   hashtags: string[];
   counts: {
     views: number;

@@ -11,6 +11,7 @@ interface Settings {
   privateAccount: boolean;
   allowComments: boolean;
   allowDuet: boolean;
+  allowStitch: boolean;
   allowDownloads: boolean;
   allowMessagesFrom: "everyone" | "followers" | "none";
   showActivityStatus: boolean;
@@ -55,6 +56,7 @@ export default function PrivacySettingsPage() {
         <Row label="Private account" description="Only approved followers can see your videos" checked={settings.privateAccount} onChange={(v) => update({ privateAccount: v })} />
         <Row label="Allow comments on my videos" checked={settings.allowComments} onChange={(v) => update({ allowComments: v })} />
         <Row label="Allow duet & repost" checked={settings.allowDuet} onChange={(v) => update({ allowDuet: v })} />
+        <Row label="Allow stitch" checked={settings.allowStitch} onChange={(v) => update({ allowStitch: v })} />
         <Row label="Allow video downloads" checked={settings.allowDownloads} onChange={(v) => update({ allowDownloads: v })} />
         <Row label="Show activity status" description="Let others see when you're online" checked={settings.showActivityStatus} onChange={(v) => update({ showActivityStatus: v })} />
         <Row

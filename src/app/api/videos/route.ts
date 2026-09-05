@@ -18,6 +18,7 @@ export const POST = withAuth(async (req, { user }) => {
   const privacy = ["everyone", "followers", "onlyMe"].includes(String(form.get("privacy"))) ? String(form.get("privacy")) : "everyone";
   const allowComments = form.get("allowComments") !== "false";
   const allowDuet = form.get("allowDuet") !== "false";
+  const allowStitch = form.get("allowStitch") !== "false";
   const allowDownload = form.get("allowDownload") !== "false";
   const allowSoundReuse = form.get("allowSoundReuse") !== "false";
   const allowReuse = form.get("allowReuse") !== "false";
@@ -31,6 +32,15 @@ export const POST = withAuth(async (req, { user }) => {
     const original = await prisma.video.findUnique({ where: { id: requestedDuetOfId } });
     if (original && original.status === "published" && original.allowDuet && original.postType === "video") {
       duetOfId = original.id;
+    }
+  }
+
+  let stitchOfId: string | undefined;
+  const requestedStitchOfId = form.get("stitchOfId") ? String(form.get("stitchOfId")) : null;
+  if (requestedStitchOfId) {
+    const original = await prisma.video.findUnique({ where: { id: requestedStitchOfId } });
+    if (original && original.status === "published" && original.allowStitch && original.postType === "video") {
+      stitchOfId = original.id;
     }
   }
 
@@ -88,12 +98,14 @@ export const POST = withAuth(async (req, { user }) => {
       privacy,
       allowComments,
       allowDuet,
+      allowStitch,
       allowDownload,
       allowSoundReuse,
       allowReuse,
       soundId: soundId || undefined,
       status,
       duetOfId,
+      stitchOfId,
       analytics: { create: {} },
       photos: photoUrls.length ? { create: photoUrls.map((url, order) => ({ url, order })) } : undefined,
       hashtags: {

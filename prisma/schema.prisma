@@ -94,6 +94,7 @@ model UserSettings {
   privateAccount     Boolean @default(false)
   allowComments      Boolean @default(true)
   allowDuet          Boolean @default(true)
+  allowStitch        Boolean @default(true)
   allowDownloads     Boolean @default(true)
   allowMessagesFrom  String  @default("everyone") // everyone | followers | none
   showActivityStatus Boolean @default(true)
@@ -209,6 +210,7 @@ model Video {
   privacy         String    @default("everyone") // everyone | followers | onlyMe
   allowComments   Boolean   @default(true)
   allowDuet       Boolean   @default(true)
+  allowStitch     Boolean   @default(true)
   allowDownload   Boolean   @default(true)
   allowSoundReuse Boolean   @default(true)
   allowReuse      Boolean   @default(true)
@@ -217,6 +219,7 @@ model Video {
   status          String    @default("published") // published | processing | removed | draft
   isRepostOfId    String?
   duetOfId        String?
+  stitchOfId      String?
   isPinned        Boolean   @default(false)
   pinnedAt        DateTime?
   createdAt       DateTime  @default(now())
@@ -226,6 +229,8 @@ model Video {
   sound            Sound?           @relation(fields: [soundId], references: [id])
   duetOf           Video?           @relation("VideoDuets", fields: [duetOfId], references: [id], onDelete: SetNull)
   duets            Video[]          @relation("VideoDuets")
+  stitchOf         Video?           @relation("VideoStitches", fields: [stitchOfId], references: [id], onDelete: SetNull)
+  stitches         Video[]          @relation("VideoStitches")
   photos           PostPhoto[]
   hashtags         VideoHashtag[]
   views            VideoView[]

@@ -15,6 +15,7 @@ const schema = z.object({
   privateAccount: z.boolean().optional(),
   allowComments: z.boolean().optional(),
   allowDuet: z.boolean().optional(),
+  allowStitch: z.boolean().optional(),
   allowDownloads: z.boolean().optional(),
   allowMessagesFrom: z.enum(["everyone", "followers", "none"]).optional(),
   showActivityStatus: z.boolean().optional(),
