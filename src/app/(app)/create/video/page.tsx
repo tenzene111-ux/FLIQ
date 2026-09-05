@@ -364,7 +364,7 @@ function CreatePageInner() {
                 draft.maxDuration === d ? "bg-white text-black border-white" : "border-white/30 text-white/80"
               )}
             >
-              {d < 60 ? `${d}s` : d === 60 ? "1 min" : "3 min"}
+              {d < 60 ? `${d}s` : `${d / 60} min`}
             </button>
           ))}
         </div>

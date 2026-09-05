@@ -14,6 +14,8 @@ import {
   MapPin,
   Music2,
   SquareSplitHorizontal,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { CaptionText } from "@/components/feed/CaptionText";
@@ -47,6 +49,10 @@ export function VideoCard({
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(true);
   const [showPlayIcon, setShowPlayIcon] = useState(false);
+  const [muted, setMuted] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("fliq_muted") === "1";
+  });
   const [progress, setProgress] = useState(0);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [errored, setErrored] = useState(false);
@@ -131,6 +137,20 @@ export function VideoCard({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = muted;
+    if (audioRef.current) audioRef.current.muted = muted;
+  }, [muted]);
+
+  function toggleMute(e: React.MouseEvent) {
+    e.stopPropagation();
+    setMuted((m) => {
+      const next = !m;
+      localStorage.setItem("fliq_muted", next ? "1" : "0");
+      return next;
+    });
+  }
 
   function handleTimeUpdate() {
     const el = videoRef.current;
@@ -258,7 +278,7 @@ export function VideoCard({
             onClick={handleTap}
             onTouchEnd={handleTap}
           />
-          {video.sound && <audio ref={audioRef} src={video.sound.audioUrl} loop />}
+          {video.sound && <audio ref={audioRef} src={video.sound.audioUrl} loop muted={muted} />}
         </>
       ) : !errored ? (
         <video
@@ -267,6 +287,7 @@ export function VideoCard({
           poster={video.thumbnailUrl}
           className="absolute inset-0 w-full h-full object-cover"
           loop
+          muted={muted}
           playsInline
           preload={isActive || preload ? "auto" : "metadata"}
           onTimeUpdate={handleTimeUpdate}
@@ -306,6 +327,17 @@ export function VideoCard({
           className="absolute text-danger pointer-events-none animate-heart-burst -translate-x-1/2 -translate-y-1/2"
           style={{ left: heartBurst.x, top: heartBurst.y }}
         />
+      )}
+
+      {!isPhoto && (
+        <button
+          onClick={toggleMute}
+          aria-label={muted ? "Unmute" : "Mute"}
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)" }}
+          className="absolute right-3 z-20 w-9 h-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center text-white"
+        >
+          {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+        </button>
       )}
 
       {/* progress indicator */}
@@ -451,7 +483,17 @@ export function VideoCard({
             onClick={(e) => e.stopPropagation()}
             className="pointer-events-auto flex items-center gap-1.5 mt-1.5 text-xs text-white/90"
           >
-            <Music2 size={12} className="shrink-0" />
+            {video.sound.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={video.sound.coverUrl}
+                alt=""
+                className="w-3.5 h-3.5 rounded-full object-cover shrink-0 animate-spin-record"
+                style={{ animationPlayState: playing && isActive ? "running" : "paused" }}
+              />
+            ) : (
+              <Music2 size={12} className="shrink-0" />
+            )}
             <span className="truncate max-w-[220px]">
               {video.sound.isOriginal ? `original sound · ${video.sound.artist}` : `${video.sound.title} · ${video.sound.artist}`}
             </span>

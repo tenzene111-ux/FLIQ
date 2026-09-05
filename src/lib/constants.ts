@@ -62,5 +62,5 @@ export const REPORT_REASONS = [
   { value: "other", label: "Other" },
 ] as const;
 
-export const MAX_VIDEO_DURATIONS = [15, 30, 60, 180] as const;
+export const MAX_VIDEO_DURATIONS = [15, 30, 60, 180, 600] as const;
 export const RECORD_SPEEDS = [0.3, 0.5, 1, 2, 3] as const;

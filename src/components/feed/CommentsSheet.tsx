@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sheet } from "@/components/ui/Sheet";
 import { Avatar } from "@/components/ui/Avatar";
 import { CaptionText } from "@/components/feed/CaptionText";
@@ -12,6 +12,15 @@ import { Heart, Pin, Trash2, CornerDownRight, Send, MessageCircleOff } from "luc
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ListRowSkeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
+
+type SortMode = "top" | "newest";
+
+interface MentionCandidate {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+}
 
 export function CommentsSheet({
   videoId,
@@ -33,6 +42,12 @@ export function CommentsSheet({
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<CommentDTO | null>(null);
   const [posting, setPosting] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("top");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionResults, setMentionResults] = useState<MentionCandidate[]>([]);
+  const mentionStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -43,11 +58,59 @@ export function CommentsSheet({
       .catch(() => setComments([]));
   }, [open, videoId]);
 
+  useEffect(() => {
+    if (mentionQuery === null) {
+      setMentionResults([]);
+      return;
+    }
+    const handle = setTimeout(() => {
+      if (!mentionQuery) {
+        setMentionResults([]);
+        return;
+      }
+      fetch(`/api/search?q=${encodeURIComponent(mentionQuery)}&type=users`)
+        .then((r) => r.json())
+        .then((d) => setMentionResults((d.users ?? []).slice(0, 5)))
+        .catch(() => setMentionResults([]));
+    }, 150);
+    return () => clearTimeout(handle);
+  }, [mentionQuery]);
+
+  function handleTextChange(value: string, caretPos: number) {
+    setText(value);
+    const beforeCaret = value.slice(0, caretPos);
+    const match = /(?:^|\s)@(\w*)$/.exec(beforeCaret);
+    if (match) {
+      mentionStartRef.current = beforeCaret.length - match[1].length - 1;
+      setMentionQuery(match[1]);
+    } else {
+      mentionStartRef.current = null;
+      setMentionQuery(null);
+    }
+  }
+
+  function pickMention(candidate: MentionCandidate) {
+    const start = mentionStartRef.current;
+    const input = inputRef.current;
+    if (start === null || !input) return;
+    const caretPos = input.selectionStart ?? text.length;
+    const next = `${text.slice(0, start)}@${candidate.username} ${text.slice(caretPos)}`;
+    setText(next);
+    setMentionQuery(null);
+    mentionStartRef.current = null;
+    requestAnimationFrame(() => {
+      const cursor = start + candidate.username.length + 2;
+      input.focus();
+      input.setSelectionRange(cursor, cursor);
+    });
+  }
+
   async function submit() {
     if (!text.trim() || posting) return;
     setPosting(true);
     const body = { text: text.trim(), parentId: replyTo?.id ?? null };
     setText("");
+    setMentionQuery(null);
     try {
       const res = await fetch(`/api/videos/${videoId}/comments`, {
         method: "POST",
@@ -89,12 +152,33 @@ export function CommentsSheet({
     await fetch(`/api/comments/${c.id}/pin`, { method: "POST" }).catch(() => {});
   }
 
-  const topLevel = comments?.filter((c) => !c.parentId) ?? [];
+  const topLevelUnsorted = comments?.filter((c) => !c.parentId) ?? [];
+  const topLevel = [...topLevelUnsorted].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+    if (sortMode === "newest") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return b.likeCount - a.likeCount || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
   const repliesOf = (id: string) => comments?.filter((c) => c.parentId === id) ?? [];
 
   return (
-    <Sheet open={open} onClose={onClose} title={`${comments ? topLevel.length : ""} Comments`.trim()} heightClass="h-[80vh]">
+    <Sheet open={open} onClose={onClose} title={`${comments ? topLevelUnsorted.length : ""} Comments`.trim()} heightClass="h-[80vh]">
       <div className="flex flex-col h-full">
+        {allowComments && topLevel.length > 0 && (
+          <div className="flex items-center gap-1 px-4 pt-2.5 pb-1 shrink-0">
+            {(["top", "newest"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setSortMode(mode)}
+                className={cn(
+                  "text-xs font-medium px-2.5 py-1 rounded-full",
+                  sortMode === mode ? "bg-white/15 text-white" : "text-muted-2"
+                )}
+              >
+                {mode === "top" ? "Top" : "Newest"}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto no-scrollbar">
           {!allowComments ? (
             <EmptyState icon={MessageCircleOff} title="Comments are off" description="The creator has turned off comments for this video." />
@@ -132,7 +216,24 @@ export function CommentsSheet({
         </div>
 
         {allowComments && (
-          <div className="shrink-0 border-t border-border p-3 safe-bottom">
+          <div className="shrink-0 border-t border-border p-3 safe-bottom relative">
+            {mentionResults.length > 0 && (
+              <div className="absolute bottom-full left-3 right-3 mb-1 glass-strong rounded-2xl overflow-hidden border border-border">
+                {mentionResults.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => pickMention(m)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 text-left"
+                  >
+                    <Avatar src={m.avatarUrl} alt={m.displayName} size="xs" />
+                    <div className="min-w-0">
+                      <p className="text-white text-xs font-semibold truncate">@{m.username}</p>
+                      <p className="text-muted-2 text-[11px] truncate">{m.displayName}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
             {replyTo && (
               <div className="flex items-center justify-between px-1 pb-2 text-xs text-muted">
                 <span>
@@ -146,8 +247,9 @@ export function CommentsSheet({
             <div className="flex items-center gap-2">
               <Avatar src={user?.avatarUrl} alt={user?.displayName ?? "You"} size="sm" />
               <input
+                ref={inputRef}
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => handleTextChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
                 onKeyDown={(e) => e.key === "Enter" && submit()}
                 placeholder="Add a comment..."
                 aria-label="Add a comment"

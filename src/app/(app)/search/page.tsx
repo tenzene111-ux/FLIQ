@@ -33,6 +33,11 @@ interface SearchResults {
   live: LiveResult[];
 }
 
+interface QuickSuggestions {
+  users: { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean }[];
+  hashtags: { tag: string; viewCount: number }[];
+}
+
 export default function SearchPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -42,7 +47,10 @@ export default function SearchPage() {
   const [recent, setRecent] = useState<string[]>([]);
   const [trending, setTrending] = useState<string[]>([]);
   const [following, setFollowing] = useState<Set<string>>(new Set());
+  const [inputFocused, setInputFocused] = useState(false);
+  const [suggestions, setSuggestions] = useState<QuickSuggestions | null>(null);
   const debounced = useDebouncedValue(query, 300);
+  const suggestDebounced = useDebouncedValue(query, 120);
 
   useEffect(() => {
     setRecent(getRecentSearches());
@@ -66,6 +74,20 @@ export default function SearchPage() {
       })
       .finally(() => setLoading(false));
   }, [debounced, tab]);
+
+  // A faster, lighter type-ahead dropdown (top user/hashtag matches only),
+  // independent of the active results tab — this is what shows while you're
+  // still typing, before the full results grid below has caught up.
+  useEffect(() => {
+    if (!suggestDebounced.trim()) {
+      setSuggestions(null);
+      return;
+    }
+    fetch(`/api/search?q=${encodeURIComponent(suggestDebounced)}&type=top`)
+      .then((r) => r.json())
+      .then((d) => setSuggestions({ users: (d.users ?? []).slice(0, 4), hashtags: (d.hashtags ?? []).slice(0, 3) }))
+      .catch(() => setSuggestions(null));
+  }, [suggestDebounced]);
 
   function commitSearch(term: string) {
     setQuery(term);
@@ -104,21 +126,55 @@ export default function SearchPage() {
           <button onClick={() => router.back()} className="text-white shrink-0 md:hidden" aria-label="Back">
             <ArrowLeft size={22} />
           </button>
-          <div className="flex-1 flex items-center gap-2 bg-surface-2 border border-border rounded-full px-4 py-2.5">
-            <SearchIcon size={17} className="text-muted-2 shrink-0" />
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && commitSearch(query)}
-              placeholder="Search Fliq"
-              aria-label="Search Fliq"
-              className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-muted-2 min-w-0"
-            />
-            {query && (
-              <button onClick={() => setQuery("")} aria-label="Clear search" className="text-muted-2 hover:text-white shrink-0">
-                <X size={16} />
-              </button>
+          <div className="relative flex-1">
+            <div className="flex items-center gap-2 bg-surface-2 border border-border rounded-full px-4 py-2.5">
+              <SearchIcon size={17} className="text-muted-2 shrink-0" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && commitSearch(query)}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setTimeout(() => setInputFocused(false), 150)}
+                placeholder="Search Fliq"
+                aria-label="Search Fliq"
+                className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-muted-2 min-w-0"
+              />
+              {query && (
+                <button onClick={() => setQuery("")} aria-label="Clear search" className="text-muted-2 hover:text-white shrink-0">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            {inputFocused && query.trim() && suggestions && (suggestions.users.length > 0 || suggestions.hashtags.length > 0) && (
+              <div className="absolute top-full inset-x-0 mt-1.5 glass-strong rounded-2xl border border-border overflow-hidden z-20">
+                {suggestions.users.map((u) => (
+                  <Link
+                    key={u.id}
+                    href={`/profile/${u.username}`}
+                    onClick={() => commitSearch(query)}
+                    className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/5"
+                  >
+                    <Avatar src={u.avatarUrl} alt={u.displayName} size="xs" verified={u.isVerified} />
+                    <div className="min-w-0">
+                      <p className="text-white text-xs font-semibold truncate">@{u.username}</p>
+                      <p className="text-muted-2 text-[11px] truncate">{u.displayName}</p>
+                    </div>
+                  </Link>
+                ))}
+                {suggestions.hashtags.map((h) => (
+                  <button
+                    key={h.tag}
+                    onClick={() => commitSearch(`#${h.tag}`)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 text-left"
+                  >
+                    <span className="w-6 h-6 rounded-full bg-gradient-brand-soft flex items-center justify-center text-fliq-cyan text-xs font-bold shrink-0">#</span>
+                    <span className="text-white text-xs font-medium truncate">#{h.tag}</span>
+                    <span className="text-muted-2 text-[11px] shrink-0 ml-auto">{formatCount(h.viewCount)} views</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>
