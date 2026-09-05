@@ -62,7 +62,14 @@ export default function EditorPage() {
   const [bakeProgress, setBakeProgress] = useState(0);
   const [exitOpen, setExitOpen] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
-  const [captionsOn, setCaptionsOn] = useState(false);
+  const [captionsOn, setCaptionsOnState] = useState(draft.captionsRequested);
+  const setCaptionsOn = (updater: boolean | ((v: boolean) => boolean)) => {
+    setCaptionsOnState((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      draft.setCaptionsRequested(next);
+      return next;
+    });
+  };
   const [recordingVoiceover, setRecordingVoiceover] = useState(false);
   const [voiceoverBlob, setVoiceoverBlob] = useState<Blob | null>(null);
   const [exportRes, setExportRes] = useState<(typeof EXPORT_RES)[number]>(EXPORT_RES[1]);

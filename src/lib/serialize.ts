@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import type { CaptionSegment } from "@/lib/captions";
 
 // ---------------------------------------------------------------------------
 // User
@@ -76,6 +77,7 @@ export function serializeVideo(v: VideoWithRelations, followingIds?: Set<string>
     allowDownload: v.allowDownload,
     allowSoundReuse: v.allowSoundReuse,
     allowReuse: v.allowReuse,
+    captions: parseCaptions(v.captions),
     isPinned: v.isPinned,
     location: v.location,
     status: v.status,
@@ -103,6 +105,16 @@ export function serializeVideo(v: VideoWithRelations, followingIds?: Set<string>
 }
 
 export type VideoDTO = ReturnType<typeof serializeVideo>;
+
+function parseCaptions(raw: string | null): CaptionSegment[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Sound

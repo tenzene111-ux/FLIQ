@@ -59,6 +59,7 @@ interface CreateDraftState {
   duetOfUsername: string | null;
   stitchOfId: string | null;
   stitchOfUsername: string | null;
+  captionsRequested: boolean;
   photoFiles: File[];
   photoPreviewUrls: string[];
   finalBlobUrl: string | null;
@@ -83,6 +84,7 @@ interface CreateDraftState {
   setSound: (id: string | null, label: string | null) => void;
   setDuetOf: (id: string | null, username: string | null) => void;
   setStitchOf: (id: string | null, username: string | null) => void;
+  setCaptionsRequested: (v: boolean) => void;
   setPhotos: (files: File[], previewUrls: string[]) => void;
   setFinal: (url: string, duration: number) => void;
   setCover: (dataUrl: string) => void;
@@ -106,6 +108,7 @@ const initialState = {
   duetOfUsername: null as string | null,
   stitchOfId: null as string | null,
   stitchOfUsername: null as string | null,
+  captionsRequested: false,
   photoFiles: [] as File[],
   photoPreviewUrls: [] as string[],
   finalBlobUrl: null as string | null,
@@ -134,6 +137,7 @@ export const useCreateDraftStore = create<CreateDraftState>((set) => ({
   setSound: (soundId, soundLabel) => set({ soundId, soundLabel }),
   setDuetOf: (duetOfId, duetOfUsername) => set({ duetOfId, duetOfUsername }),
   setStitchOf: (stitchOfId, stitchOfUsername) => set({ stitchOfId, stitchOfUsername }),
+  setCaptionsRequested: (captionsRequested) => set({ captionsRequested }),
   setPhotos: (photoFiles, photoPreviewUrls) => set({ photoFiles, photoPreviewUrls }),
   setFinal: (finalBlobUrl, finalDuration) => set({ finalBlobUrl, finalDuration }),
   setCover: (coverDataUrl) => set({ coverDataUrl }),

@@ -55,6 +55,7 @@ export function VideoCard({
     return localStorage.getItem("fliq_muted") === "1";
   });
   const [progress, setProgress] = useState(0);
+  const [activeCaption, setActiveCaption] = useState("");
   const [photoIndex, setPhotoIndex] = useState(0);
   const [errored, setErrored] = useState(false);
   const [heartBurst, setHeartBurst] = useState<{ x: number; y: number; id: number } | null>(null);
@@ -158,6 +159,10 @@ export function VideoCard({
     if (!el || !el.duration) return;
     setProgress((el.currentTime / el.duration) * 100);
     maxWatchedRef.current = Math.max(maxWatchedRef.current, el.currentTime);
+    if (video.captions?.length) {
+      const seg = video.captions.find((s) => el.currentTime >= s.start && el.currentTime <= s.end);
+      setActiveCaption(seg?.text ?? "");
+    }
   }
 
   function togglePlay() {
@@ -318,6 +323,11 @@ export function VideoCard({
       {showPlayIcon && playing && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-fade-in">
           <div className="w-16 h-16 rounded-full bg-black/30 flex items-center justify-center" />
+        </div>
+      )}
+      {!isPhoto && activeCaption && (
+        <div className="absolute inset-x-8 z-10 text-center pointer-events-none" style={{ bottom: "32%" }}>
+          <span className="inline-block bg-black/55 text-white text-sm font-medium px-2.5 py-1 rounded-md leading-snug">{activeCaption}</span>
         </div>
       )}
       {heartBurst && (

@@ -9,6 +9,12 @@ export interface UserBrief {
   isPrivate: boolean;
 }
 
+export interface CaptionSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
 export interface SoundDTO {
   id: string;
   title: string;
@@ -35,6 +41,7 @@ export interface VideoDTO {
   allowDownload: boolean;
   allowSoundReuse: boolean;
   allowReuse: boolean;
+  captions: CaptionSegment[] | null;
   isPinned: boolean;
   location: string | null;
   status: string;

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { withAuth, jsonError, jsonOk } from "@/lib/api";
 import { getStorage, MAX_VIDEO_BYTES, MAX_IMAGE_BYTES, ALLOWED_IMAGE_TYPES } from "@/lib/storage";
 import { extractHashtags, extractMentions } from "@/lib/utils";
+import { generateCaptions } from "@/lib/captions";
 import { videoInclude, serializeVideo } from "@/lib/serialize";
 import { getFollowingIdSet } from "@/lib/social";
 
@@ -47,10 +48,13 @@ export const POST = withAuth(async (req, { user }) => {
   const hashtagTags = extractHashtags(caption);
   const mentionUsernames = extractMentions(caption);
 
+  const captionsRequested = form.get("generateCaptions") === "true";
+
   let videoUrl: string | null = null;
   let thumbnailUrl = cover || "";
   let duration: number;
   let photoUrls: string[] = [];
+  let captions: string | null = null;
 
   if (postType === "photo") {
     const photoFiles = form.getAll("photos").filter((f): f is File => f instanceof File);
@@ -84,6 +88,11 @@ export const POST = withAuth(async (req, { user }) => {
     videoUrl = uploaded.url;
     const rawDuration = Number(form.get("duration"));
     duration = Number.isFinite(rawDuration) && rawDuration > 0 ? Math.max(1, Math.round(rawDuration)) : 15;
+
+    if (captionsRequested) {
+      const segments = await generateCaptions(buffer, `video.${ext}`, file.type || "video/webm");
+      captions = segments ? JSON.stringify(segments) : null;
+    }
   }
 
   const video = await prisma.video.create({
@@ -102,6 +111,7 @@ export const POST = withAuth(async (req, { user }) => {
       allowDownload,
       allowSoundReuse,
       allowReuse,
+      captions,
       soundId: soundId || undefined,
       status,
       duetOfId,

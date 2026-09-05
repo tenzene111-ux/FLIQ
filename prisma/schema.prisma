@@ -214,6 +214,7 @@ model Video {
   allowDownload   Boolean   @default(true)
   allowSoundReuse Boolean   @default(true)
   allowReuse      Boolean   @default(true)
+  captions        String? // JSON array of {start,end,text} segments from speech-to-text, null if not generated
   location        String?
   soundId         String?
   status          String    @default("published") // published | processing | removed | draft

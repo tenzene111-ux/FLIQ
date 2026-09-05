@@ -123,6 +123,7 @@ function PostPageInner() {
         if (draft.coverDataUrl) form.append("cover", draft.coverDataUrl);
         if (draft.duetOfId) form.append("duetOfId", draft.duetOfId);
         if (draft.stitchOfId) form.append("stitchOfId", draft.stitchOfId);
+        if (draft.captionsRequested) form.append("generateCaptions", "true");
       }
       form.append("caption", caption);
       form.append("location", location);
